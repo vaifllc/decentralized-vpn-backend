@@ -1,0 +1,68 @@
+const mongoose = require("mongoose")
+
+const pricingSchema = new mongoose.Schema({
+  // Name of the pricing plan, e.g., "Basic", "Pro", "Enterprise"
+  planName: {
+    type: String,
+    required: true,
+    unique: true,
+    trim: true,
+  },
+
+  // Monthly price for the plan
+  monthlyPrice: {
+    type: Number,
+    required: true,
+    min: 0,
+  },
+
+  // Yearly price for the plan
+  yearlyPrice: {
+    type: Number,
+    required: true,
+    min: 0,
+  },
+
+  // List of features included in the plan
+  features: {
+    type: [String],
+    required: true,
+    validate: (v) => Array.isArray(v) && v.length > 0, // Ensure there's at least one feature
+  },
+
+  // Maximum number of devices the plan supports
+  maxDevices: {
+    type: Number,
+    required: true,
+    min: 1,
+  },
+
+  // Data limit for the plan
+  dataLimit: {
+    type: String,
+    required: true,
+    default: "Unlimited",
+    trim: true,
+  },
+
+  // Timestamps for creation and updates
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  },
+})
+
+// Middleware to update the 'updatedAt' field on document updates
+pricingSchema.pre(["updateOne", "findOneAndUpdate"], function (next) {
+  this.set({ updatedAt: new Date() })
+  next()
+})
+
+// Indexing planName for faster search
+pricingSchema.index({ planName: 1 })
+
+module.exports = mongoose.model("Pricing", pricingSchema)
