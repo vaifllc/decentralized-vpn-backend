@@ -10,7 +10,7 @@ const options = {
     },
     servers: [
       {
-        url: "http://localhost:3000",
+        url: "https://api.vpn.vaifr2.net:3000",
       },
     ],
   },
@@ -20,3 +20,7 @@ const options = {
 const specs = swaggerJsdoc(options)
 
 module.exports = specs
+
+
+
+
