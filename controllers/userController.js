@@ -3,8 +3,13 @@ const User = require("../models/User")
 const Web3 = require('web3');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+// const web3 = new Web3(
+//   "https://mainnet.infura.io/v3/a93b9b8a10b34f78ae358e5fbbdd81dc"
+// )
 const web3 = new Web3(
-  "https://mainnet.infura.io/v3/a93b9b8a10b34f78ae358e5fbbdd81dc"
+  new Web3.providers.HttpProvider(
+    "https://mainnet.infura.io/v3/a93b9b8a10b34f78ae358e5fbbdd81dc"
+  )
 )
  // You can also set a provider if required
 
