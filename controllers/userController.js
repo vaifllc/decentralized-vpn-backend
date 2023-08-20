@@ -228,4 +228,44 @@ exports.updateProfile = async (req, res) => {
   }
 }
 
+exports.checkStatus = async (req, res) => {
+  const userId = req.session.userId
+
+  // If there's no user ID, the user is not authenticated
+  if (!userId) {
+    return res.json({
+      isAuthenticated: false,
+      message: "No user ID found in session.",
+    })
+  }
+
+  try {
+    const user = await User.findById(userId)
+
+    // If there's no user, the user is not authenticated
+    if (!user) {
+      return res.json({
+        isAuthenticated: false,
+        message: "User not found in the database.",
+      })
+    }
+
+    // If we got to this point, the user is authenticated
+    res.json({
+      isAuthenticated: true,
+      role: user.role,
+      message: "User is authenticated.",
+    })
+  } catch (err) {
+    // Handle any other errors that might occur
+    res.status(500).json({
+      isAuthenticated: false,
+      message: "Server error. Please try again later.",
+      error: err.message,
+    })
+  }
+}
+
+
+
 

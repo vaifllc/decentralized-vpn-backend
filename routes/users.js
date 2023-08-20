@@ -10,6 +10,7 @@ const {
   setupMFA,
   verifyMFASetup,
   loginWithMFA,
+  status,
 } = require("../controllers/userController") // Importing the new methods
 const { expressjwt: jwt } = require("express-jwt")
 
@@ -116,26 +117,7 @@ router.get("/", function (req, res, next) {
   res.send("respond with a resource")
 })
 
-router.get("/status", (req, res) => {
-  // Retrieve the user's ID from the session (or JWT).
-  const userId = req.session.userId
-   res.json({ status: "API is running" })
-
-  if (!userId) {
-    return res.json({ isAuthenticated: false })
-  }
-
-  User.findById(userId, (err, user) => {
-    if (err || !user) {
-      return res.json({ isAuthenticated: false })
-    }
-
-    res.json({
-      isAuthenticated: true,
-      role: user.role,
-    })
-  })
-})
+router.get("/status", status )
 
 
 module.exports = router
