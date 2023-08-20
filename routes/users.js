@@ -116,4 +116,25 @@ router.get("/", function (req, res, next) {
   res.send("respond with a resource")
 })
 
+router.get("/status", (req, res) => {
+  // Retrieve the user's ID from the session (or JWT).
+  const userId = req.session.userId
+
+  if (!userId) {
+    return res.json({ isAuthenticated: false })
+  }
+
+  User.findById(userId, (err, user) => {
+    if (err || !user) {
+      return res.json({ isAuthenticated: false })
+    }
+
+    res.json({
+      isAuthenticated: true,
+      role: user.role,
+    })
+  })
+})
+
+
 module.exports = router
