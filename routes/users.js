@@ -10,7 +10,7 @@ const {
   setupMFA,
   verifyMFASetup,
   loginWithMFA,
-  status,
+  checkStatus,
 } = require("../controllers/userController") // Importing the new methods
 const { expressjwt: jwt } = require("express-jwt")
 
@@ -117,7 +117,7 @@ router.get("/", function (req, res, next) {
   res.send("respond with a resource")
 })
 
-router.get("/status", status )
+router.get("/status", checkStatus)
 
 
 module.exports = router
