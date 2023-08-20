@@ -119,6 +119,7 @@ router.get("/", function (req, res, next) {
 router.get("/status", (req, res) => {
   // Retrieve the user's ID from the session (or JWT).
   const userId = req.session.userId
+   res.json({ status: "API is running" })
 
   if (!userId) {
     return res.json({ isAuthenticated: false })
