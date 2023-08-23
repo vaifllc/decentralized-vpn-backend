@@ -4,6 +4,7 @@ const { Web3 } = require("web3")
 const jwt = require("jsonwebtoken")
 const crypto = require("crypto")
 const { validationResult } = require("express-validator")
+const { v4: uuidv4 } = require("uuid")
 
 const web3 = new Web3(
   new Web3.providers.HttpProvider(
@@ -61,6 +62,7 @@ async function centralizedRegistration(email, password, res) {
   const hashedPassword = await bcrypt.hash(password, salt)
 
   const newUser = new User({
+    userId: uuidv4(),
     email,
     password: hashedPassword,
   })
@@ -86,6 +88,7 @@ async function decentralizedRegistration(ethAddress, signature, res) {
   // Note: Actual verification would involve using Ethereum libraries.
 
   const newUser = new User({
+    userId: uuidv4(),
     ethAddress,
     nonce,
   })
