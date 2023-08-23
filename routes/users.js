@@ -56,15 +56,7 @@ const handleValidationErrors = (req, res, next) => {
  *         description: Bad request
  */
 router.post(
-  "/register",
-  [
-    check("email").isEmail().withMessage("Valid email is required"),
-    check("password")
-      .isLength({ min: 6 })
-      .withMessage("Password must be at least 6 characters long"),
-    handleValidationErrors,
-  ],
-  register
+  "/register",register
 )
 
 /**
