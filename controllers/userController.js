@@ -1,8 +1,8 @@
-const bcrypt = require("bcryptjs")
+const bcrypt = require("bcrypt")
 const User = require("../models/User")
 const { Web3 } = require("web3")
-const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
+const jwt = require("jsonwebtoken")
+const crypto = require("crypto")
 const { validationResult } = require("express-validator")
 
 const web3 = new Web3(
@@ -42,6 +42,7 @@ exports.register = async (req, res) => {
         .json({ error: "Invalid registration data" })
     }
   } catch (error) {
+    console.error("Error during registration:", error)
     return res
       .status(HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR)
       .json({ error: "Server error" })
@@ -95,8 +96,6 @@ async function decentralizedRegistration(ethAddress, signature, res) {
     .json({ message: "User registered successfully (decentralized)" })
 }
 
-
-
 exports.login = async (req, res) => {
   const { email, password, ethAddress, signature } = req.body
 
@@ -147,7 +146,6 @@ exports.login = async (req, res) => {
     res.status(500).json({ error: "Server error" })
   }
 }
-
 
 const speakeasy = require("speakeasy")
 const QRCode = require("qrcode")
@@ -293,8 +291,3 @@ exports.checkStatus = async (req, res) => {
     })
   }
 }
-
-
-
-
-
