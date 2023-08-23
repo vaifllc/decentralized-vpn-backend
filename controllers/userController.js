@@ -60,6 +60,8 @@ async function centralizedRegistration(email, password, res) {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10) // salt is generated and used internally
+    const isMatch = await bcrypt.compare(password, hashedPassword)
+    console.log("Immediate hash check:", isMatch) // This should log `true`
 
     const newUser = new User({
       userId: uuidv4(),
