@@ -59,7 +59,7 @@ async function centralizedRegistration(email, password, res) {
         .json({ error: "Email already registered" })
     }
 
-        const storedPassword = Buffer.from(user.password, "base64").toString(
+        const storedPassword = Buffer.from(password, "base64").toString(
           "utf8"
         )
     const hashedPassword = await bcrypt.hash(password, 10) // salt is generated and used internally
