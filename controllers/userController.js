@@ -37,16 +37,14 @@ exports.register = async (req, res) => {
     else if (ethAddress && signature) {
       await decentralizedRegistration(ethAddress, signature, res)
     } else {
-      res
+      return res
         .status(HTTP_STATUS_CODES.BAD_REQUEST)
         .json({ error: "Invalid registration data" })
     }
   } catch (error) {
-    res
+    return res
       .status(HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR)
-      .status(500).json({ error: "Server error" })
       .json({ error: "Server error" })
-      console.error("Error in registration:", error.message)
   }
 }
 
@@ -67,7 +65,7 @@ async function centralizedRegistration(email, password, res) {
   })
 
   await newUser.save()
-  res
+  return res
     .status(HTTP_STATUS_CODES.CREATED)
     .json({ message: "User registered successfully (centralized)" })
 }
@@ -92,10 +90,11 @@ async function decentralizedRegistration(ethAddress, signature, res) {
   })
 
   await newUser.save()
-  res
+  return res
     .status(HTTP_STATUS_CODES.CREATED)
     .json({ message: "User registered successfully (decentralized)" })
 }
+
 
 
 exports.login = async (req, res) => {
