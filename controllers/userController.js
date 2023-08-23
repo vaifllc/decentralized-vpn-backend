@@ -51,27 +51,32 @@ exports.register = async (req, res) => {
 }
 
 async function centralizedRegistration(email, password, res) {
-  const existingUser = await User.findOne({ email })
-  if (existingUser) {
+  try {
+    const existingUser = await User.findOne({ email })
+    if (existingUser) {
+      return res
+        .status(HTTP_STATUS_CODES.BAD_REQUEST)
+        .json({ error: "Email already registered" })
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10) // salt is generated and used internally
+
+    const newUser = new User({
+      userId: uuidv4(),
+      email,
+      password: hashedPassword,
+    })
+
+    await newUser.save()
     return res
-      .status(HTTP_STATUS_CODES.BAD_REQUEST)
-      .json({ error: "Email already registered" })
+      .status(HTTP_STATUS_CODES.CREATED)
+      .json({ message: "User registered successfully (centralized)" })
+  } catch (error) {
+    console.error("Error during registration:", error)
+    return res.status(500).json({ error: "Server error" })
   }
-
-  const salt = await bcrypt.genSalt(10)
-  const hashedPassword = await bcrypt.hash(password, salt)
-
-  const newUser = new User({
-    userId: uuidv4(),
-    email,
-    password: hashedPassword,
-  })
-
-  await newUser.save()
-  return res
-    .status(HTTP_STATUS_CODES.CREATED)
-    .json({ message: "User registered successfully (centralized)" })
 }
+
 
 async function decentralizedRegistration(ethAddress, signature, res) {
   const existingUser = await User.findOne({ ethAddress })
@@ -119,8 +124,6 @@ exports.login = async (req, res) => {
 
       if (!isMatch) {
         console.log("Password mismatch for email:", email)
-        console.log("Provided password:", password)
-        console.log("Stored hashed password:", user.password)
         return res.status(400).json({ error: "Invalid credentials" })
       }
 
