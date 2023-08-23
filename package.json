@@ -8,7 +8,6 @@
   "dependencies": {
     "@google-cloud/compute": "^4.0.0",
     "@google-cloud/monitoring": "^4.0.0",
-    "bcrypt": "^5.1.1",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "~1.4.4",
     "cors": "^2.8.5",
