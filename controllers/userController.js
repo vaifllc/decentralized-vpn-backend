@@ -102,15 +102,21 @@ async function decentralizedRegistration(ethAddress, signature, res) {
 exports.login = async (req, res) => {
   const { email, password, ethAddress, signature } = req.body
 
+  console.log("Login request received:", req.body)
+
   try {
     if (email && password) {
       const user = await User.findOne({ email })
+      console.log("User found:", user)
+
       if (!user) {
+        console.log("No user found with email:", email)
         return res.status(400).json({ error: "Invalid credentials" })
       }
 
       const isMatch = await bcrypt.compare(password, user.password)
       if (!isMatch) {
+        console.log("Password mismatch for email:", email)
         return res.status(400).json({ error: "Invalid credentials" })
       }
 
@@ -118,10 +124,13 @@ exports.login = async (req, res) => {
       const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
         expiresIn: "1h",
       })
-      res.status(200).json({ message: "Logged in (centralized)", token })
+      return res.status(200).json({ message: "Logged in (centralized)", token })
     } else if (ethAddress && signature) {
       const user = await User.findOne({ ethAddress })
+      console.log("User found with Ethereum address:", user)
+
       if (!user) {
+        console.log("No user found with Ethereum address:", ethAddress)
         return res.status(400).json({ error: "Login failed" })
       }
 
@@ -130,6 +139,7 @@ exports.login = async (req, res) => {
 
       // Compare the recovered address with the stored ethAddress
       if (recoveredAddress.toLowerCase() !== ethAddress.toLowerCase()) {
+        console.log("Signature mismatch for Ethereum address:", ethAddress)
         return res.status(401).json({ error: "Invalid signature" })
       }
 
@@ -141,14 +151,19 @@ exports.login = async (req, res) => {
       const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
         expiresIn: "1h",
       })
-      res.status(200).json({ message: "Logged in (decentralized)", token })
+      return res
+        .status(200)
+        .json({ message: "Logged in (decentralized)", token })
     } else {
-      res.status(400).json({ error: "Invalid login data" })
+      console.log("Invalid login data:", req.body)
+      return res.status(400).json({ error: "Invalid login data" })
     }
   } catch (error) {
-    res.status(500).json({ error: "Server error" })
+    console.error("Error during login:", error)
+    return res.status(500).json({ error: "Server error" })
   }
 }
+
 
 const speakeasy = require("speakeasy")
 const QRCode = require("qrcode")
