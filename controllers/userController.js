@@ -1,4 +1,4 @@
-const bcrypt = require("bcrypt")
+const bcrypt = require("bcryptjs")
 const User = require("../models/User")
 const { Web3 } = require("web3")
 const jwt = require("jsonwebtoken")
@@ -116,7 +116,6 @@ exports.login = async (req, res) => {
       console.log("User found:", user)
 
       const isMatch = await bcrypt.compare(password, user.password)
-      bcrypt
 
       if (!isMatch) {
         console.log("Password mismatch for email:", email)
@@ -164,8 +163,6 @@ exports.login = async (req, res) => {
     return res.status(500).json({ error: "Server error" })
   }
 }
-
-
 
 const speakeasy = require("speakeasy")
 const QRCode = require("qrcode")
