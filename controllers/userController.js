@@ -10,66 +10,90 @@ const web3 = new Web3(
   )
 )
 
- // You can also set a provider if required
+const HTTP_STATUS_CODES = {
+  OK: 200,
+  CREATED: 201,
+  BAD_REQUEST: 400,
+  INTERNAL_SERVER_ERROR: 500,
+}
 
 exports.register = async (req, res) => {
   const { email, password, ethAddress, signature } = req.body
-      const errors = validationResult(req)
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() })
-      }
+  const errors = validationResult(req)
+
+  if (!errors.isEmpty()) {
+    return res
+      .status(HTTP_STATUS_CODES.BAD_REQUEST)
+      .json({ errors: errors.array() })
+  }
+
   try {
+    // Centralized registration
     if (email && password) {
-      // Check if email already exists
-      const existingUser = await User.findOne({ email })
-      if (existingUser) {
-        return res.status(400).json({ error: "Email already registered" })
-      }
-
-      const salt = await bcrypt.genSalt(10)
-      const hashedPassword = await bcrypt.hash(password, salt)
-
-      const newUser = new User({
-        email,
-        password: hashedPassword,
-      })
-
-      await newUser.save()
-      res
-        .status(201)
-        .json({ message: "User registered successfully (centralized)" })
-    } else if (ethAddress && signature) {
-      // Check if ethAddress already exists
-      const existingUser = await User.findOne({ ethAddress })
-      if (existingUser) {
-        return res
-          .status(400)
-          .json({ error: "Ethereum address already registered" })
-      }
-
-      // Generate a nonce
-      const nonce = crypto.randomBytes(16).toString("hex")
-
-      // Here, you'd verify the signature using the ethAddress and nonce.
-      // If valid, proceed with registration.
-      // Note: Actual verification would involve using Ethereum libraries.
-
-      const newUser = new User({
-        ethAddress,
-        nonce,
-      })
-
-      await newUser.save()
-      res
-        .status(201)
-        .json({ message: "User registered successfully (decentralized)" })
+      await centralizedRegistration(email, password, res)
+    }
+    // Decentralized registration
+    else if (ethAddress && signature) {
+      await decentralizedRegistration(ethAddress, signature, res)
     } else {
-      res.status(400).json({ error: "Invalid registration data" })
+      res
+        .status(HTTP_STATUS_CODES.BAD_REQUEST)
+        .json({ error: "Invalid registration data" })
     }
   } catch (error) {
-    res.status(500).json({ error: "Server error" })
+    res
+      .status(HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR)
+      .json({ error: "Server error" })
   }
 }
+
+async function centralizedRegistration(email, password, res) {
+  const existingUser = await User.findOne({ email })
+  if (existingUser) {
+    return res
+      .status(HTTP_STATUS_CODES.BAD_REQUEST)
+      .json({ error: "Email already registered" })
+  }
+
+  const salt = await bcrypt.genSalt(10)
+  const hashedPassword = await bcrypt.hash(password, salt)
+
+  const newUser = new User({
+    email,
+    password: hashedPassword,
+  })
+
+  await newUser.save()
+  res
+    .status(HTTP_STATUS_CODES.CREATED)
+    .json({ message: "User registered successfully (centralized)" })
+}
+
+async function decentralizedRegistration(ethAddress, signature, res) {
+  const existingUser = await User.findOne({ ethAddress })
+  if (existingUser) {
+    return res
+      .status(HTTP_STATUS_CODES.BAD_REQUEST)
+      .json({ error: "Ethereum address already registered" })
+  }
+
+  const nonce = crypto.randomBytes(16).toString("hex")
+
+  // Here, you'd verify the signature using the ethAddress and nonce.
+  // If valid, proceed with registration.
+  // Note: Actual verification would involve using Ethereum libraries.
+
+  const newUser = new User({
+    ethAddress,
+    nonce,
+  })
+
+  await newUser.save()
+  res
+    .status(HTTP_STATUS_CODES.CREATED)
+    .json({ message: "User registered successfully (decentralized)" })
+}
+
 
 exports.login = async (req, res) => {
   const { email, password, ethAddress, signature } = req.body
