@@ -106,7 +106,8 @@ exports.login = async (req, res) => {
 
   try {
     if (email && password) {
-      const user = await User.findOne({ email })
+      const user = await User.findOne({ email }).select('+password');
+
       console.log("User found:", user)
 
       if (!user) {
