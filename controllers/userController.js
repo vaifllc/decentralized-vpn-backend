@@ -127,6 +127,9 @@ exports.login = async (req, res) => {
       const isMatch = await bcrypt.compare(password, user.password.trim())
       console.log("Retrieved password hash length:", user.password.length)
       console.log(Buffer.from(user.password).toString("hex"))
+      console.log("Hash from DB:", user.password)
+      console.log("Hash of provided password:", await bcrypt.hash(password, 10))
+
 
 
 
