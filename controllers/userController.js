@@ -59,7 +59,7 @@ async function centralizedRegistration(email, password, res) {
         .json({ error: "Email already registered" })
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10) // salt is generated and used internally
+    const hashedPassword = await bcrypt.hash(password, 5) // salt is generated and used internally
     const isMatch = await bcrypt.compare(password, hashedPassword)
     console.log("Immediate hash check:", isMatch) // This should log `true`
 
