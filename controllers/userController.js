@@ -59,16 +59,9 @@ async function centralizedRegistration(email, password, res) {
         .json({ error: "Email already registered" })
     }
 
-        const storedPassword = Buffer.from(password, "base64").toString(
-          "utf8"
-        )
     const hashedPassword = await bcrypt.hash(password, 10) // salt is generated and used internally
-    const isMatch = await bcrypt.compare(
-      password,
-      hashedPassword,
-      storedPassword
-    )
-
+    const isMatch = await bcrypt.compare(password, hashedPassword)
+    
     console.log("Immediate hash check:", isMatch) // This should log `true`
 
     const newUser = new User({
@@ -130,7 +123,7 @@ exports.login = async (req, res) => {
 
       console.log("User found:", user)
 
-      const isMatch = await bcrypt.compare(password, user.password)
+      const isMatch = await bcrypt.compare(user.password, password)
 
       if (!isMatch) {
         console.log("Password mismatch for email:", email)
