@@ -106,7 +106,8 @@ exports.login = async (req, res) => {
 
   try {
     if (email && password) {
-      const user = await User.findOne({ email }).select("+password")
+      // const user = await User.findOne({ email }).select("+password")
+      const user = await User.findOne({ email })
 
       if (!user) {
         console.log("No user found with email:", email)
@@ -116,6 +117,7 @@ exports.login = async (req, res) => {
       console.log("User found:", user)
 
       const isMatch = await bcrypt.compare(password, user.password)
+      bcrypt
 
       if (!isMatch) {
         console.log("Password mismatch for email:", email)
