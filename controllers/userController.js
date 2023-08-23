@@ -106,49 +106,48 @@ exports.login = async (req, res) => {
 
   try {
     if (email && password) {
-      const user = await User.findOne({ email }).select('+password');
-
-      console.log("User found:", user)
+      const user = await User.findOne({ email }).select("+password")
 
       if (!user) {
         console.log("No user found with email:", email)
         return res.status(400).json({ error: "Invalid credentials" })
       }
 
+      console.log("User found:", user)
+
       const isMatch = await bcrypt.compare(password, user.password)
+
       if (!isMatch) {
         console.log("Password mismatch for email:", email)
+        console.log("Provided password:", password)
+        console.log("Stored hashed password:", user.password)
         return res.status(400).json({ error: "Invalid credentials" })
       }
 
-      // Generate JWT
       const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
         expiresIn: "1h",
       })
       return res.status(200).json({ message: "Logged in (centralized)", token })
     } else if (ethAddress && signature) {
       const user = await User.findOne({ ethAddress })
-      console.log("User found with Ethereum address:", user)
 
       if (!user) {
         console.log("No user found with Ethereum address:", ethAddress)
         return res.status(400).json({ error: "Login failed" })
       }
 
-      // Get the Ethereum address from the signature
+      console.log("User found with Ethereum address:", user)
+
       const recoveredAddress = web3.eth.accounts.recover(user.nonce, signature)
 
-      // Compare the recovered address with the stored ethAddress
       if (recoveredAddress.toLowerCase() !== ethAddress.toLowerCase()) {
         console.log("Signature mismatch for Ethereum address:", ethAddress)
         return res.status(401).json({ error: "Invalid signature" })
       }
 
-      // Invalidate or update the nonce
       user.nonce = crypto.randomBytes(16).toString("hex")
       await user.save()
 
-      // Generate JWT
       const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
         expiresIn: "1h",
       })
@@ -164,6 +163,7 @@ exports.login = async (req, res) => {
     return res.status(500).json({ error: "Server error" })
   }
 }
+
 
 
 const speakeasy = require("speakeasy")
