@@ -1,4 +1,4 @@
-const bcrypt = require("bcryptjs")
+const bcrypt = require("bcrypt")
 const User = require("../models/User")
 const { Web3 } = require("web3")
 const jwt = require("jsonwebtoken")
@@ -59,8 +59,16 @@ async function centralizedRegistration(email, password, res) {
         .json({ error: "Email already registered" })
     }
 
-    const hashedPassword = await bcrypt.hash(password, 5) // salt is generated and used internally
-    const isMatch = await bcrypt.compare(password, hashedPassword)
+        const storedPassword = Buffer.from(user.password, "base64").toString(
+          "utf8"
+        )
+    const hashedPassword = await bcrypt.hash(password, 10) // salt is generated and used internally
+    const isMatch = await bcrypt.compare(
+      password,
+      hashedPassword,
+      storedPassword
+    )
+
     console.log("Immediate hash check:", isMatch) // This should log `true`
 
     const newUser = new User({
