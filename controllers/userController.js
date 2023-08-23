@@ -44,7 +44,9 @@ exports.register = async (req, res) => {
   } catch (error) {
     res
       .status(HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR)
+      .status(500).json({ error: "Server error" })
       .json({ error: "Server error" })
+      console.error("Error in registration:", error.message)
   }
 }
 
