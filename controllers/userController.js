@@ -3,6 +3,7 @@ const User = require("../models/User")
 const { Web3 } = require("web3")
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const { validationResult } = require("express-validator")
 
 const web3 = new Web3(
   new Web3.providers.HttpProvider(
