@@ -11,6 +11,7 @@ const {
   verifyMFASetup,
   loginWithMFA,
   checkStatus,
+  logout,
 } = require("../controllers/userController") // Importing the new methods
 const { expressjwt: jwt } = require("express-jwt")
 
@@ -82,6 +83,7 @@ router.post(
  */
 // Login route
 router.post("/login", login)
+router.post("/logout", logout)
 
 // Fetch user profile
 router.get("/profile", requireLogin, getProfile) // This route should be protected

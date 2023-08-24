@@ -176,6 +176,67 @@ exports.login = async (req, res) => {
   }
 }
 
+// Each blacklisted token entry will have the format: { token: '...', userId: '...', expires: <timestamp> }
+let blacklistedTokens = [];
+
+exports.logout = async (req, res) => {
+    try {
+        const token = req.headers.authorization.split(" ")[1];  // Assumes "Bearer <token>" format
+        if (!token) {
+            return res.status(HTTP_STATUS_CODES.BAD_REQUEST).json({ error: "No token provided" });
+        }
+
+        const decodedToken = jwt.decode(token);
+        const userId = decodedToken && decodedToken.userId;
+
+        // Add token to blacklist with user and expiration details
+        blacklistedTokens.push({
+            token: token,
+            userId: userId,
+            expires: decodedToken.exp * 1000  // Convert JWT expiration to milliseconds
+        });
+
+        console.log(`Token from user ${userId} added to blacklist`);
+
+        // Set a timeout to remove the token from the blacklist after its expiration
+        setTimeout(() => {
+            blacklistedTokens = blacklistedTokens.filter(t => t.token !== token);
+        }, decodedToken.exp * 1000 - Date.now());
+
+        return res.status(HTTP_STATUS_CODES.OK).json({ message: "Successfully logged out" });
+    } catch (error) {
+        console.error("Error during logout:", error);
+        return res.status(HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR).json({ error: "Server error" });
+    }
+};
+
+exports.logoutAllDevices = async (req, res) => {
+    try {
+        const userId = req.user._id;  // Assuming you're storing user details in req.user
+
+        // Add all tokens of this user to blacklist
+        const userTokens = blacklistedTokens.filter(t => t.userId === userId);
+        blacklistedTokens = [...blacklistedTokens, ...userTokens];
+
+        console.log(`All tokens from user ${userId} added to blacklist`);
+
+        return res.status(HTTP_STATUS_CODES.OK).json({ message: "Successfully logged out from all devices" });
+    } catch (error) {
+        console.error("Error during logout from all devices:", error);
+        return res.status(HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR).json({ error: "Server error" });
+    }
+};
+
+// Middleware to check if a token is blacklisted
+exports.checkBlacklistedToken = (req, res, next) => {
+    const token = req.headers.authorization && req.headers.authorization.split(" ")[1];
+    if (blacklistedTokens.some(t => t.token === token)) {
+        return res.status(HTTP_STATUS_CODES.BAD_REQUEST).json({ error: "This token has been blacklisted" });
+    }
+    next();
+};
+
+
 const speakeasy = require("speakeasy")
 const QRCode = require("qrcode")
 
