@@ -180,35 +180,50 @@ exports.login = async (req, res) => {
 let blacklistedTokens = [];
 
 exports.logout = async (req, res) => {
-    try {
-        const token = req.headers.authorization.split(" ")[1];  // Assumes "Bearer <token>" format
-        if (!token) {
-            return res.status(HTTP_STATUS_CODES.BAD_REQUEST).json({ error: "No token provided" });
-        }
+  try {
+    const authorizationHeader = req.headers.authorization
 
-        const decodedToken = jwt.decode(token);
-        const userId = decodedToken && decodedToken.userId;
-
-        // Add token to blacklist with user and expiration details
-        blacklistedTokens.push({
-            token: token,
-            userId: userId,
-            expires: decodedToken.exp * 1000  // Convert JWT expiration to milliseconds
-        });
-
-        console.log(`Token from user ${userId} added to blacklist`);
-
-        // Set a timeout to remove the token from the blacklist after its expiration
-        setTimeout(() => {
-            blacklistedTokens = blacklistedTokens.filter(t => t.token !== token);
-        }, decodedToken.exp * 1000 - Date.now());
-
-        return res.status(HTTP_STATUS_CODES.OK).json({ message: "Successfully logged out" });
-    } catch (error) {
-        console.error("Error during logout:", error);
-        return res.status(HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR).json({ error: "Server error" });
+    if (!authorizationHeader) {
+      return res
+        .status(HTTP_STATUS_CODES.BAD_REQUEST)
+        .json({ error: "No authorization header provided" })
     }
-};
+
+    const token = authorizationHeader.split(" ")[1]
+    if (!token) {
+      return res
+        .status(HTTP_STATUS_CODES.BAD_REQUEST)
+        .json({ error: "Invalid authorization format" })
+    }
+
+    const decodedToken = jwt.decode(token)
+    const userId = decodedToken && decodedToken.userId
+
+    // Add token to blacklist with user and expiration details
+    blacklistedTokens.push({
+      token: token,
+      userId: userId,
+      expires: decodedToken.exp * 1000, // Convert JWT expiration to milliseconds
+    })
+
+    console.log(`Token from user ${userId} added to blacklist`)
+
+    // Set a timeout to remove the token from the blacklist after its expiration
+    setTimeout(() => {
+      blacklistedTokens = blacklistedTokens.filter((t) => t.token !== token)
+    }, decodedToken.exp * 1000 - Date.now())
+
+    return res
+      .status(HTTP_STATUS_CODES.OK)
+      .json({ message: "Successfully logged out" })
+  } catch (error) {
+    console.error("Error during logout:", error)
+    return res
+      .status(HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR)
+      .json({ error: "Server error" })
+  }
+}
+
 
 exports.logoutAllDevices = async (req, res) => {
     try {
