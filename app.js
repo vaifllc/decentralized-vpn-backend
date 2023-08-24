@@ -34,7 +34,10 @@ app.use(express.urlencoded({ extended: false }))
 app.use(cookieParser())
 app.use(express.static(path.join(__dirname, "public")))
 
-const allowedOrigins = [process.env.CORS_ORIGIN, process.env.CORS_ORIGIN_URL]
+const allowedOrigins = process.env.CORS_ORIGIN.split(",").concat([
+  process.env.CORS_ORIGIN_URL,
+])
+
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -48,6 +51,9 @@ app.use(
     },
   })
 )
+
+
+
 
 app.use(limiter)
 app.use(morgan("combined"))
