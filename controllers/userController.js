@@ -357,19 +357,27 @@ exports.updateProfile = async (req, res) => {
   }
 }
 
-exports.checkStatus = async (req, res) => {
-  // Try to get the user ID from the session
-  const userId = req.session && req.session.userId
+const jwt = require("jsonwebtoken")
 
-  // If there's no user ID in the session, the user is not authenticated
-  if (!userId) {
+exports.checkStatus = async (req, res) => {
+  // Extract the JWT token from the request headers
+  const token =
+    req.headers.authorization && req.headers.authorization.split(" ")[1]
+
+  if (!token) {
     return res.status(401).json({
       isAuthenticated: false,
-      message: "No user ID found in session.",
+      message: "No token provided.",
     })
   }
 
   try {
+    // Verify the token
+    const decodedToken = jwt.verify(token, process.env.JWT_SECRET)
+
+    // Extract the userId from the decoded token
+    const userId = decodedToken.userId
+
     // Attempt to find the user in the database
     const user = await User.findById(userId)
 
@@ -388,6 +396,13 @@ exports.checkStatus = async (req, res) => {
       message: "User is authenticated.",
     })
   } catch (err) {
+    if (err.name === "JsonWebTokenError" || err.name === "TokenExpiredError") {
+      return res.status(401).json({
+        isAuthenticated: false,
+        message: "Invalid or expired token.",
+      })
+    }
+
     // Handle unexpected errors
     return res.status(500).json({
       isAuthenticated: false,
@@ -396,3 +411,4 @@ exports.checkStatus = async (req, res) => {
     })
   }
 }
+
