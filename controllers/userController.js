@@ -5,7 +5,7 @@ const jwt = require("jsonwebtoken")
 const crypto = require("crypto")
 const { validationResult } = require("express-validator")
 const { v4: uuidv4 } = require("uuid")
-const BlacklistedToken = require('./models/BlacklistedToken');  // Replace with the actual path to your model
+const BlacklistedToken = require('../models/BlacklistedToken');  // Replace with the actual path to your model
 
 const web3 = new Web3(
   new Web3.providers.HttpProvider(
