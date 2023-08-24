@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken")
 const crypto = require("crypto")
 const { validationResult } = require("express-validator")
 const { v4: uuidv4 } = require("uuid")
+const BlacklistedToken = require('./models/BlacklistedToken');  // Replace with the actual path to your model
 
 const web3 = new Web3(
   new Web3.providers.HttpProvider(
@@ -177,8 +178,6 @@ exports.login = async (req, res) => {
 }
 
 // Each blacklisted token entry will have the format: { token: '...', userId: '...', expires: <timestamp> }
-let blacklistedTokens = [];
-
 exports.logout = async (req, res) => {
   try {
     const authorizationHeader = req.headers.authorization
@@ -199,19 +198,16 @@ exports.logout = async (req, res) => {
     const decodedToken = jwt.decode(token)
     const userId = decodedToken && decodedToken.userId
 
-    // Add token to blacklist with user and expiration details
-    blacklistedTokens.push({
+    // Add token to MongoDB
+    const newBlacklistedToken = new BlacklistedToken({
       token: token,
       userId: userId,
       expires: decodedToken.exp * 1000, // Convert JWT expiration to milliseconds
     })
 
-    console.log(`Token from user ${userId} added to blacklist`)
+    await newBlacklistedToken.save()
 
-    // Set a timeout to remove the token from the blacklist after its expiration
-    setTimeout(() => {
-      blacklistedTokens = blacklistedTokens.filter((t) => t.token !== token)
-    }, decodedToken.exp * 1000 - Date.now())
+    console.log(`Token from user ${userId} added to blacklist`)
 
     return res
       .status(HTTP_STATUS_CODES.OK)
@@ -223,6 +219,7 @@ exports.logout = async (req, res) => {
       .json({ error: "Server error" })
   }
 }
+
 
 
 exports.logoutAllDevices = async (req, res) => {
