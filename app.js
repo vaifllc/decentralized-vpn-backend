@@ -80,7 +80,7 @@ const jwtMiddleware = (req, res, next) => {
 }
 
 // Use this middleware for protected routes
-app.use("/protected-route", jwtMiddleware, protectedRouteHandler)
+//app.use("/protected-route", jwtMiddleware, protectedRouteHandler)
 
 app.use(limiter)
 app.use(morgan("combined"))
