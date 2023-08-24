@@ -357,7 +357,7 @@ exports.updateProfile = async (req, res) => {
   }
 }
 
-const jwt = require("jsonwebtoken")
+
 
 exports.checkStatus = async (req, res) => {
   // Extract the JWT token from the request headers
