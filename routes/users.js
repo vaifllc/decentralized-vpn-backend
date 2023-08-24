@@ -21,19 +21,17 @@ const authenticateJWT = jwt({
   algorithms: ["HS256"],
   requestProperty: "auth",
   getToken: function fromHeaderOrCookie(req) {
-    // Check for token in Authorization header
     if (
       req.headers.authorization &&
       req.headers.authorization.split(" ")[0] === "Bearer"
     ) {
       return req.headers.authorization.split(" ")[1]
     }
-    // Check for token in cookies (if you decide to use this approach)
-    // else if (req.cookies && req.cookies.token) {
-    //     return req.cookies.token;
-    // }
-    return null // Return null if no token found
+    return null
   },
+}).unless({
+  // List of routes that don't require authentication
+  path: ["/users/login", "/users/register"],
 })
 
 const checkBlacklistedToken = (req, res, next) => {
@@ -49,24 +47,11 @@ const checkBlacklistedToken = (req, res, next) => {
 
 // Middleware for protected routes
 const requireLogin = (req, res, next) => {
-  authenticateJWT(req, res, async (err) => {
-    if (err) {
-      const message =
-        err.name === "UnauthorizedError"
-          ? "Invalid token or no token provided."
-          : err.message
-      return res.status(401).send({ message })
-    }
-
-    // Verify if user exists in database
-    const userId = req.auth.id
-    const user = await User.findById(userId)
-    if (!user) {
-      return res.status(401).send({ message: "The user does not exist." })
-    }
-
-    next()
-  })
+authenticateJWT.unless().use((err, req, res, next) => {
+  if (err.name === "UnauthorizedError") {
+    res.status(401).json({ error: "Invalid Token" })
+  }
+})
 }
 
 // Error handling middleware for validation errors
