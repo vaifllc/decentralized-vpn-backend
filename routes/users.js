@@ -6,6 +6,7 @@ const {
   register,
   login,
   getProfile,
+  getAuthenticatedUser,
   updateProfile,
   setupMFA,
   verifyMFASetup,
@@ -15,13 +16,47 @@ const {
 } = require("../controllers/userController") // Importing the new methods
 const { expressjwt: jwt } = require("express-jwt")
 
-
-// Middleware for protected routes
-const requireLogin = jwt({
+const authenticateJWT = jwt({
   secret: process.env.JWT_SECRET,
   algorithms: ["HS256"],
-  userProperty: "auth",
+  requestProperty: "auth",
+  getToken: function fromHeaderOrCookie(req) {
+    // Check for token in Authorization header
+    if (
+      req.headers.authorization &&
+      req.headers.authorization.split(" ")[0] === "Bearer"
+    ) {
+      return req.headers.authorization.split(" ")[1]
+    }
+    // Check for token in cookies (if you decide to use this approach)
+    // else if (req.cookies && req.cookies.token) {
+    //     return req.cookies.token;
+    // }
+    return null // Return null if no token found
+  },
 })
+
+// Middleware for protected routes
+const requireLogin = (req, res, next) => {
+  authenticateJWT(req, res, async (err) => {
+    if (err) {
+      const message =
+        err.name === "UnauthorizedError"
+          ? "Invalid token or no token provided."
+          : err.message
+      return res.status(401).send({ message })
+    }
+
+    // Verify if user exists in database
+    const userId = req.auth.id
+    const user = await User.findById(userId)
+    if (!user) {
+      return res.status(401).send({ message: "The user does not exist." })
+    }
+
+    next()
+  })
+}
 
 // Error handling middleware for validation errors
 const handleValidationErrors = (req, res, next) => {
@@ -112,6 +147,8 @@ router.get("/", function (req, res, next) {
 })
 
 router.get("/status", checkStatus)
+
+router.get("/details", requireLogin, getAuthenticatedUser)
 
 
 module.exports = router
