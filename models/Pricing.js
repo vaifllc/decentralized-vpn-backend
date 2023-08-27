@@ -23,14 +23,21 @@ const pricingSchema = new mongoose.Schema({
     min: 0,
   },
 
-  // List of features included in the plan
+  // Two-yearly price for the plan
+twoYearlyPrice: {
+  type: Number,
+  required: true,
+  min: 0,
+  },
+
+    // List of features included in the plan
   features: {
     type: [String],
     required: true,
     validate: (v) => Array.isArray(v) && v.length > 0, // Ensure there's at least one feature
   },
 
-  // Maximum number of devices the plan supports
+    // Maximum number of devices the plan supports
   maxDevices: {
     type: Number,
     required: true,
@@ -44,6 +51,19 @@ const pricingSchema = new mongoose.Schema({
     default: "Unlimited",
     trim: true,
   },
+
+  // Discount percentage for the plan
+discount: {
+  type: Number,
+  min: 0,
+  max: 100,
+},
+
+// List of add-ons available for the plan
+addOns: {
+  type: [String],
+  default: [],
+},
 
   // Timestamps for creation and updates
   createdAt: {

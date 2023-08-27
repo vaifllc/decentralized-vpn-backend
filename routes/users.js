@@ -47,11 +47,13 @@ const checkBlacklistedToken = (req, res, next) => {
 
 // Middleware for protected routes
 const requireLogin = (req, res, next) => {
-authenticateJWT.unless().use((err, req, res, next) => {
-  if (err.name === "UnauthorizedError") {
-    res.status(401).json({ error: "Invalid Token" })
+authenticateJWT((err, req, res, next) => {
+  if (err) {
+    return res.status(401).json({ error: "Invalid Token" })
   }
+  next()
 })
+
 }
 
 // Error handling middleware for validation errors
