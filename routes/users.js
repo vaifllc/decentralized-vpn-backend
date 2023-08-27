@@ -16,22 +16,25 @@ const {
 } = require("../controllers/userController") // Importing the new methods
 const { expressjwt: jwt } = require("express-jwt")
 
-const authenticateJWT = (req, res, next) => {
-  const authHeader = req.headers.authorization
-  if (authHeader) {
-    const token = authHeader.split(" ")[1]
-    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-      if (err) {
-        return res.sendStatus(403)
-      }
-      req.auth = user
-      next()
-    })
-  } else {
-    res.sendStatus(401)
-  }
-}
-
+const authenticateJWT = jwt({
+  secret: process.env.JWT_SECRET,
+  algorithms: ["HS256"],
+  requestProperty: "auth",
+  getToken: function fromHeaderOrCookie(req) {
+    // Check for token in Authorization header
+    if (
+      req.headers.authorization &&
+      req.headers.authorization.split(" ")[0] === "Bearer"
+    ) {
+      return req.headers.authorization.split(" ")[1]
+    }
+    // Check for token in cookies (if you decide to use this approach)
+    // else if (req.cookies && req.cookies.token) {
+    //     return req.cookies.token;
+    // }
+    return null // Return null if no token found
+  },
+})
 
 const checkBlacklistedToken = (req, res, next) => {
   const token = req.auth // Assuming 'requestProperty: "auth"' from jwt middleware
@@ -46,11 +49,24 @@ const checkBlacklistedToken = (req, res, next) => {
 
 // Middleware for protected routes
 const requireLogin = (req, res, next) => {
-authenticateJWT.unless().use((err, req, res, next) => {
-  if (err.name === "UnauthorizedError") {
-    res.status(401).json({ error: "Invalid Token" })
-  }
-})
+  authenticateJWT(req, res, async (err) => {
+    if (err) {
+      const message =
+        err.name === "UnauthorizedError"
+          ? "Invalid token or no token provided."
+          : err.message
+      return res.status(401).send({ message })
+    }
+
+    // Verify if user exists in database
+    const userId = req.auth.id
+    const user = await User.findById(userId)
+    if (!user) {
+      return res.status(401).send({ message: "The user does not exist." })
+    }
+
+    next()
+  })
 }
 
 // Error handling middleware for validation errors
