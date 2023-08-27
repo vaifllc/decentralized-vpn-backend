@@ -181,6 +181,7 @@ exports.login = async (req, res) => {
 exports.logout = async (req, res) => {
   try {
     const authorizationHeader = req.headers.authorization
+    console.log("Authorization Header:", authorizationHeader) // Additional log
 
     if (!authorizationHeader) {
       return res
@@ -196,6 +197,7 @@ exports.logout = async (req, res) => {
     }
 
     const decodedToken = jwt.decode(token)
+    console.log("Decoded Token:", decodedToken) // Additional log
     const userId = decodedToken && decodedToken.userId
 
     // Add token to MongoDB
@@ -206,6 +208,7 @@ exports.logout = async (req, res) => {
     })
 
     await newBlacklistedToken.save()
+        console.log(`Token from user ${userId} added to blacklist`)
 
     console.log(`Token from user ${userId} added to blacklist`)
 
@@ -214,6 +217,7 @@ exports.logout = async (req, res) => {
       .json({ message: "Successfully logged out" })
   } catch (error) {
     console.error("Error during logout:", error)
+    
     return res
       .status(HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR)
       .json({ error: "Server error" })
