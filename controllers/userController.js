@@ -414,10 +414,20 @@ exports.checkStatus = async (req, res) => {
 }
 
 exports.getAuthenticatedUser = async (req, res) => {
+  console.log("Backend Headers:", req.headers) // Log the headers
+
+  // Check if the user ID is available in the request
+  if (!req.user || !req.user.id) {
+    return res
+      .status(401)
+      .json({ message: "Unauthorized. No user ID found in token." })
+  }
+
   try {
     const userId = req.user.id // Get user ID from the decoded JWT token
     const user = await User.findById(userId).select("-password") // Fetch user without password field
 
+    // Check if the user exists
     if (!user) {
       return res.status(404).json({ message: "User not found" })
     }
@@ -428,5 +438,6 @@ exports.getAuthenticatedUser = async (req, res) => {
     res.status(500).send("Server Error")
   }
 }
+
 
 
