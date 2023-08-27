@@ -16,23 +16,22 @@ const {
 } = require("../controllers/userController") // Importing the new methods
 const { expressjwt: jwt } = require("express-jwt")
 
-const authenticateJWT = jwt({
-  secret: process.env.JWT_SECRET,
-  algorithms: ["HS256"],
-  requestProperty: "auth",
-  getToken: function fromHeaderOrCookie(req) {
-    if (
-      req.headers.authorization &&
-      req.headers.authorization.split(" ")[0] === "Bearer"
-    ) {
-      return req.headers.authorization.split(" ")[1]
-    }
-    return null
-  },
-}).unless({
-  // List of routes that don't require authentication
-  path: ["/users/login", "/users/register"],
-})
+const authenticateJWT = (req, res, next) => {
+  const authHeader = req.headers.authorization
+  if (authHeader) {
+    const token = authHeader.split(" ")[1]
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+      if (err) {
+        return res.sendStatus(403)
+      }
+      req.auth = user
+      next()
+    })
+  } else {
+    res.sendStatus(401)
+  }
+}
+
 
 const checkBlacklistedToken = (req, res, next) => {
   const token = req.auth // Assuming 'requestProperty: "auth"' from jwt middleware
