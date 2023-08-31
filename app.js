@@ -17,6 +17,7 @@ const swaggerUi = require("swagger-ui-express")
 const swaggerSpecs = require("./config/swagger")
 const rateLimit = require("express-rate-limit")
 const adminRoutes = require("./routes/adminRoutes")
+const addOnRoutes = require("./routes/addOnRoutes")
 const helmet = require("helmet")
 
 const limiter = rateLimit({
