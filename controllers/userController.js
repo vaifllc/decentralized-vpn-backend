@@ -6,6 +6,7 @@ const crypto = require("crypto")
 const { validationResult } = require("express-validator")
 const { v4: uuidv4 } = require("uuid")
 const BlacklistedToken = require('../models/BlacklistedToken');  // Replace with the actual path to your model
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY)
 
 const web3 = new Web3(
   new Web3.providers.HttpProvider(
@@ -62,13 +63,25 @@ async function centralizedRegistration(email, password, res) {
 
     const hashedPassword = await bcrypt.hash(password, 10) // salt is generated and used internally
     const isMatch = await bcrypt.compare(password, hashedPassword)
-    
+
     console.log("Immediate hash check:", isMatch) // This should log `true`
+
+    // Create Stripe Customer
+    const stripeCustomer = await stripe.customers.create({
+      email,
+      // Add any other Stripe Customer fields if needed
+    })
+
+    if (!stripeCustomer || stripeCustomer.error) {
+      console.error("Error creating Stripe customer:", stripeCustomer.error)
+      return res.status(500).json({ error: "Failed to create Stripe customer" })
+    }
 
     const newUser = new User({
       userId: uuidv4(),
       email,
       password: hashedPassword,
+      stripeCustomerId: stripeCustomer.id, // Store the Stripe Customer ID in your User model
     })
 
     await newUser.save()
@@ -92,6 +105,18 @@ async function decentralizedRegistration(ethAddress, signature, res) {
 
   const nonce = crypto.randomBytes(16).toString("hex")
 
+  // Create Stripe Customer
+  // Note: Normally, you'd probably have the email from a decentralized system, but for this example, let's assume not.
+  const stripeCustomer = await stripe.customers.create({
+    description: `Customer for ethAddress: ${ethAddress}`,
+    // Add any other Stripe Customer fields if needed
+  })
+
+  if (!stripeCustomer || stripeCustomer.error) {
+    console.error("Error creating Stripe customer:", stripeCustomer.error)
+    return res.status(500).json({ error: "Failed to create Stripe customer" })
+  }
+
   // Here, you'd verify the signature using the ethAddress and nonce.
   // If valid, proceed with registration.
   // Note: Actual verification would involve using Ethereum libraries.
@@ -100,6 +125,7 @@ async function decentralizedRegistration(ethAddress, signature, res) {
     userId: uuidv4(),
     ethAddress,
     nonce,
+    stripeCustomerId: stripeCustomer.id, // Store the Stripe Customer ID in your User model
   })
 
   await newUser.save()
@@ -124,8 +150,7 @@ exports.login = async (req, res) => {
 
       console.log("User found:", user)
 
-      //const isMatch = await bcrypt.compare(user.password, password)
-      const isMatch = await bcrypt.compare(password, user.password.trim())
+      const isMatch = await bcrypt.compare(user.password, password)
       console.log("Retrieved password hash length:", user.password.length)
       console.log(Buffer.from(user.password).toString("hex"))
       
@@ -159,7 +184,22 @@ exports.login = async (req, res) => {
       }
 
       user.nonce = crypto.randomBytes(16).toString("hex")
-      await user.save()
+
+      // Common logic for both authentication types
+      const newSession = {
+        sessionId: crypto.randomBytes(16).toString("hex"),
+        createdAt: new Date(),
+        event: "Login",
+        device: req.headers["user-agent"],
+        ip: req.ip,
+        // Populate these fields using a third-party geolocation API
+        location: "",
+        isp: "",
+        appVersion: "", // Get this information from your client app
+        isActive: true,
+      }
+          user.sessions.push(newSession)
+          await user.save()
 
       const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
         expiresIn: "1h",
@@ -180,47 +220,37 @@ exports.login = async (req, res) => {
 // Each blacklisted token entry will have the format: { token: '...', userId: '...', expires: <timestamp> }
 exports.logout = async (req, res) => {
   try {
+    // Step 1: Check if the Authorization header exists
     const authorizationHeader = req.headers.authorization
-    console.log("Authorization Header:", authorizationHeader) // Additional log
-
     if (!authorizationHeader) {
-      return res
-        .status(HTTP_STATUS_CODES.BAD_REQUEST)
-        .json({ error: "No authorization header provided" })
+      return res.status(400).json({ error: "No authorization header provided" })
     }
 
+    // Step 2: Validate the token format and decode it
     const token = authorizationHeader.split(" ")[1]
     if (!token) {
-      return res
-        .status(HTTP_STATUS_CODES.BAD_REQUEST)
-        .json({ error: "Invalid authorization format" })
+      return res.status(400).json({ error: "Invalid authorization format" })
     }
 
     const decodedToken = jwt.decode(token)
-    console.log("Decoded Token:", decodedToken) // Additional log
-    const userId = decodedToken && decodedToken.userId
+    if (!decodedToken || !decodedToken.userId) {
+      return res.status(400).json({ error: "Invalid token" })
+    }
 
-    // Add token to MongoDB
+    // Step 3: Add token to MongoDB
     const newBlacklistedToken = new BlacklistedToken({
       token: token,
-      userId: userId,
+      userId: decodedToken.userId,
       expires: decodedToken.exp * 1000, // Convert JWT expiration to milliseconds
     })
 
     await newBlacklistedToken.save()
-        console.log(`Token from user ${userId} added to blacklist`)
+    console.log(`Token from user ${decodedToken.userId} added to blacklist`)
 
-    console.log(`Token from user ${userId} added to blacklist`)
-
-    return res
-      .status(HTTP_STATUS_CODES.OK)
-      .json({ message: "Successfully logged out" })
+    return res.status(200).json({ message: "Successfully logged out" })
   } catch (error) {
     console.error("Error during logout:", error)
-    
-    return res
-      .status(HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR)
-      .json({ error: "Server error" })
+    return res.status(500).json({ error: "Server error" })
   }
 }
 
@@ -358,6 +388,99 @@ exports.updateProfile = async (req, res) => {
   }
 }
 
+exports.updateUser = async (req, res) => {
+  const userId = req.params.userId
+  const updateData = req.body
+
+  try {
+    // Validate the input (you can add more validation based on your needs)
+    if (!userId || typeof updateData !== "object") {
+      return res.status(400).json({ error: "Invalid input data" })
+    }
+
+    // Find the user and update
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    )
+
+    // Check if user exists
+    if (!user) {
+      return res.status(404).json({ error: "User not found" })
+    }
+
+    // Log this update event (Assuming you have an EventLog model)
+    const event = new EventLog({
+      userId,
+      eventType: "UserUpdate",
+      details: `User with ID ${userId} updated.`,
+      timestamp: new Date(),
+    })
+    await event.save()
+
+    // Return the updated user
+    return res.status(200).json({ message: "User updated successfully", user })
+  } catch (error) {
+    console.error(`Error updating user: ${error}`)
+
+    // Log this error event
+    const event = new EventLog({
+      userId,
+      eventType: "UserUpdateError",
+      details: `Error updating user with ID ${userId}: ${error.message}`,
+      timestamp: new Date(),
+    })
+    await event.save()
+
+    return res.status(500).json({ error: "Server error" })
+  }
+}
+
+async function updateUserService(userId, updateData) {
+  try {
+    // Validate the input
+    if (!userId || typeof updateData !== "object") {
+      throw new Error("Invalid input data")
+    }
+
+    // Find the user and update
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    )
+
+    // Check if user exists
+    if (!user) {
+      throw new Error("User not found")
+    }
+
+    // Log this update event
+    const event = new EventLog({
+      userId,
+      eventType: "UserUpdate",
+      details: `User with ID ${userId} updated.`,
+      timestamp: new Date(),
+    })
+    await event.save()
+
+    return user
+  } catch (error) {
+    console.error(`Error updating user: ${error}`)
+
+    // Log this error event
+    const event = new EventLog({
+      userId,
+      eventType: "UserUpdateError",
+      details: `Error updating user with ID ${userId}: ${error.message}`,
+      timestamp: new Date(),
+    })
+    await event.save()
+
+    throw error
+  }
+}
 
 
 exports.checkStatus = async (req, res) => {

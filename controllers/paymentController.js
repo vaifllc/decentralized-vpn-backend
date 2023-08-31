@@ -2,13 +2,53 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY)
 const User = require("../models/User") // Assuming you have a User model
 const { sendEmail } = require("../utils/emailService")
 const redisClient = require('../config/redis');  // Assuming you have a Redis setup
+const { createInvoice, updateUserPaymentHistory } = require('./invoiceController'); // Import your invoice creation function
+const { updateUserService } = require("..controllers/userController") // Import your user updating function
 
+async function updateUserService(userId, updateData) {
+  try {
+    if (!userId || typeof updateData !== "object") {
+      throw new Error("Invalid input data")
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    )
+
+    if (!user) {
+      throw new Error("User not found")
+    }
+
+    const event = new EventLog({
+      userId,
+      eventType: "UserUpdate",
+      details: `User with ID ${userId} updated.`,
+      timestamp: new Date(),
+    })
+    await event.save()
+
+    return user
+  } catch (error) {
+    console.error(`Error updating user: ${error}`)
+
+    const event = new EventLog({
+      userId,
+      eventType: "UserUpdateError",
+      details: `Error updating user with ID ${userId}: ${error.message}`,
+      timestamp: new Date(),
+    })
+    await event.save()
+
+    throw error
+  }
+}
 
 exports.createPaymentIntent = async (req, res) => {
   try {
     const { amount, userId, items } = req.body
 
-    // Validation
     if (!amount || !userId || !items || !Array.isArray(items)) {
       return res.status(400).json({ error: "Invalid input data." })
     }
@@ -16,26 +56,49 @@ exports.createPaymentIntent = async (req, res) => {
     const metadata = {
       userId,
       items: JSON.stringify(items),
-      timestamp: new Date().toISOString(), // additional metadata for tracking
+      timestamp: new Date().toISOString(),
+    }
+
+    // Update user with Stripe customer ID if not already set
+    const user = await User.findById(userId)
+    if (!user.stripeCustomerId) {
+      const stripeCustomer = await stripe.customers.create({
+        email: user.email,
+        // other customer information
+      })
+
+      await updateUserService(userId, { stripeCustomerId: stripeCustomer.id })
     }
 
     const paymentIntent = await stripe.paymentIntents.create(
       {
         amount,
         currency: "usd",
+        customer: user.stripeCustomerId,
         metadata,
       },
       {
-        idempotencyKey: `${userId}-${Date.now()}`, // Ensures this request doesn't get accidentally duplicated
+        idempotencyKey: `${userId}-${Date.now()}`,
       }
     )
+
+    // Create a new invoice in your database
+    const invoice = new Invoice({
+      userId, // User who is making the payment
+      totalAmount: amount, // Total amount of the payment
+      paymentIntentId: paymentIntent.id, // Stripe payment intent ID
+      paymentMethod: "Credit Card", // Payment method used
+      paymentStatus: "Due", // Initial status
+      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Due date, 7 days from now
+    })
+
+    await invoice.save()
 
     res.json({
       clientSecret: paymentIntent.client_secret,
     })
   } catch (error) {
     if (error.type === "StripeCardError") {
-      // This error occurs when the card has issues, like insufficient funds.
       return res.status(400).json({ error: error.message })
     }
     res
@@ -43,6 +106,9 @@ exports.createPaymentIntent = async (req, res) => {
       .json({ error: `Error creating payment intent: ${error.message}` })
   }
 }
+
+
+
 
 // Create a new product
 exports.createProduct = async (req, res) => {
@@ -165,11 +231,10 @@ exports.createSubscription = async (req, res) => {
 
 
 exports.handleStripeWebhook = async (req, res) => {
-  const WEBHOOK_SECRET = "YOUR_WEBHOOK_SECRET" // Retrieve this from environment variables or your config
+  const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET
 
   let event
   try {
-    // Verify the webhook signature for security
     event = stripe.webhooks.constructEvent(
       req.body,
       req.headers["stripe-signature"],
@@ -181,33 +246,77 @@ exports.handleStripeWebhook = async (req, res) => {
   }
 
   try {
-    // Process the Stripe event
     switch (event.type) {
       case "invoice.paid":
         const invoice = event.data.object
-        // Extend the user's VPN access based on the invoice details
-        await extendVPNAccess(invoice.customer, invoice.total)
+        const relatedInvoice = await Invoice.findOne({
+          stripeInvoiceId: invoice.id,
+        })
+
+        if (relatedInvoice) {
+          relatedInvoice.paymentStatus = "Paid"
+          await relatedInvoice.save()
+
+          // Log this payment event
+          const eventLog = new EventLog({
+            eventType: "InvoicePaid",
+            details: `Invoice with ID ${relatedInvoice._id} paid.`,
+            timestamp: new Date(),
+          })
+          await eventLog.save()
+        }
         break
 
       case "invoice.payment_failed":
         const failedInvoice = event.data.object
-        // Notify the user of the failed payment
-        await notifyFailedPayment(failedInvoice.customer)
+        // Log this failed payment event
+        const failedEventLog = new EventLog({
+          eventType: "InvoicePaymentFailed",
+          details: `Payment for invoice with Stripe ID ${failedInvoice.id} failed.`,
+          timestamp: new Date(),
+        })
+        await failedEventLog.save()
         break
 
       case "payment_intent.succeeded":
         const paymentIntent = event.data.object
-        // Handle the confirmation of the payment, perhaps updating user's balance or access
-        await handlePaymentSuccess(paymentIntent.customer, paymentIntent.amount)
+        // Do something on successful payment, such as extending subscription
+        const subscription = await Subscription.findOne({
+          stripeSubscriptionId: paymentIntent.metadata.subscriptionId,
+        })
+
+        if (subscription) {
+          // Assume the subscription period is one month. Adjust as needed.
+          const newEndDate = new Date(subscription.endDate)
+          newEndDate.setMonth(newEndDate.getMonth() + 1)
+
+          subscription.endDate = newEndDate
+          subscription.status = "active" // Set the subscription to active
+
+          await subscription.save()
+
+          // Log this event
+          const successEventLog = new EventLog({
+            eventType: "SubscriptionExtended",
+            details: `Subscription with ID ${
+              subscription._id
+            } extended till ${newEndDate.toISOString()}.`,
+            timestamp: new Date(),
+          })
+          await successEventLog.save()
+        }
         break
 
       case "payment_intent.payment_failed":
         const failedPaymentIntent = event.data.object
-        // Handle payment failures, maybe send a notification or block certain services
-        await handlePaymentFailure(failedPaymentIntent.customer)
+        // Log this event
+        const failureEventLog = new EventLog({
+          eventType: "PaymentIntentFailed",
+          details: `Payment intent failed with Stripe ID ${failedPaymentIntent.id}.`,
+          timestamp: new Date(),
+        })
+        await failureEventLog.save()
         break
-
-      // Add other event cases as necessary
 
       default:
         console.warn(`Unhandled Stripe event type: ${event.type}`)
@@ -756,6 +865,26 @@ exports.cancelSubscription = async (req, res) => {
         return handleStripeError(res, error);
     }
 };
+
+async function handleStripePayment(stripeCustomerId, amount, description) {
+  try {
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount,
+      currency: "usd",
+      customer: stripeCustomerId,
+      description,
+    })
+
+    if (paymentIntent.status === "succeeded") {
+      return { success: true, paymentIntent }
+    } else {
+      return { success: false, reason: paymentIntent.status }
+    }
+  } catch (error) {
+    console.error("Stripe payment error:", error)
+    return { success: false, reason: "Server error" }
+  }
+}
 
 // Reusing the helper functions we defined earlier:
 // sendErrorResponse, sendSuccessResponse, handleStripeError

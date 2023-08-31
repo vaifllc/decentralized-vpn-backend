@@ -22,6 +22,8 @@ const pricingData = [
     ],
     maxDevices: 1,
     dataLimit: "Limited",
+    planType: "Individual",
+    maxUsers: 1,
   },
   {
     planName: "ProSecure Plan",
@@ -38,6 +40,8 @@ const pricingData = [
     ],
     maxDevices: 5,
     dataLimit: "Unlimited",
+    planType: "Individual",
+    maxUsers: 1,
   },
   {
     planName: "EliteGuard Plan",
@@ -55,6 +59,27 @@ const pricingData = [
     ],
     maxDevices: 8,
     dataLimit: "Unlimited",
+    planType: "Individual",
+    maxUsers: 1,
+  },
+  {
+    planName: "Family Plan",
+    monthlyPrice: 25,
+    yearlyPrice: 250,
+    twoYearlyPrice: 450,
+    features: [
+      "Access to all servers",
+      "Up to 8 devices",
+      "High-speed",
+      "No ads",
+      "256-bit encryption",
+      "Multi-Protocol",
+      "Kill switch",
+    ],
+    maxDevices: 8,
+    dataLimit: "Unlimited",
+    planType: "Family",
+    maxUsers: 5,
   },
   {
     planName: "BusinessMax Plan",
@@ -63,15 +88,18 @@ const pricingData = [
     twoYearlyPrice: 680,
     features: [
       "Customized for businesses",
-      "priority support",
-      "additional security features",
-      "admin dashboard",
+      "Priority support",
+      "Additional security features",
+      "Admin dashboard",
     ],
     maxDevices: 24,
     dataLimit: "Unlimited",
+    planType: "Business",
+    maxUsers: 10,
   },
   // Add other plans here...
 ]
+
 
 Pricing.insertMany(pricingData)
   .then(() => {

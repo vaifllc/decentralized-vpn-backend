@@ -1,7 +1,11 @@
 const express = require("express")
 const router = express.Router()
 require("dotenv").config()
-const { check, validationResult } = require("express-validator") // Assuming you have express-validator installed
+const geoip = require("geoip-lite")
+const User = require('../models/User');  // Import your User model
+const geolocationMiddleware = require("../middleware/geolocation")
+
+const { check, validationResult, oneOf } = require("express-validator") // Assuming you have express-validator installed
 const {
   register,
   login,
@@ -15,6 +19,9 @@ const {
   logout,
 } = require("../controllers/userController") // Importing the new methods
 const { expressjwt: jwt } = require("express-jwt")
+
+
+
 
 const authenticateJWT = jwt({
   secret: process.env.JWT_SECRET,
@@ -128,22 +135,69 @@ router.post(
  *         description: Bad request
  */
 // Login route
-router.post("/login", login)
+// Then in your routes
+router.post(
+  '/login',geolocationMiddleware,
+  [
+    oneOf(
+      [
+        check('email').isEmail().withMessage('Valid email is required'),
+        check('password').isLength({ min: 6 }).withMessage('Password should be at least 6 characters')
+      ],
+      [
+        check('ethAddress').isLength({ min: 42, max: 42 }).withMessage('Valid Ethereum address is required'),
+        check('signature').exists().withMessage('Signature is required')
+      ],
+      {
+        message: 'Either email/password or ethAddress/signature must be provided.'
+      }
+    )
+  ],
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    next();
+  },
+  login // Your login controller function
+);
 router.post("/logout", logout)
 
 // Fetch user profile
 router.get("/profile", requireLogin, getProfile) // This route should be protected
 
 // Update user profile
+// Then in your routes for updating the profile
 router.put(
-  "/profile",
-  requireLogin,
+  '/profile',
   [
-    check("email").isEmail().withMessage("Valid email is required"),
-    handleValidationErrors,
+    oneOf(
+      [
+        check('email').optional().isEmail().withMessage('Valid email is required'),
+        check('password').optional().isLength({ min: 6 }).withMessage('Password should be at least 6 characters'),
+        // Add more validations here for centralized auth
+      ],
+      [
+        check('ethAddress').optional().isLength({ min: 42, max: 42 }).withMessage('Valid Ethereum address is required'),
+        // Add more validations here for decentralized auth
+      ],
+      {
+        message: 'Either email/password or ethAddress fields must be provided for update.'
+      }
+    )
   ],
-  updateProfile
-) // This route should be protected
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    next();
+  },
+  updateProfile // Your updateProfile controller function
+);
+
+
 
 router.post("/setupMFA", requireLogin, setupMFA)
 

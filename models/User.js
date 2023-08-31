@@ -57,6 +57,48 @@ const UserSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+
+  sessions: [
+    {
+      sessionId: {
+        type: String,
+        required: true,
+      },
+      createdAt: {
+        type: Date,
+        default: Date.now,
+      },
+      event: {
+        type: String,
+        enum: ["Login", "Logout"],
+      },
+      device: {
+        type: String,
+      },
+      ip: {
+        type: String,
+      },
+      location: {
+        type: String,
+      },
+      isp: {
+        type: String,
+      },
+      appVersion: {
+        type: String,
+      },
+      protection: {
+        type: Boolean, // True for VPN, False otherwise
+      },
+      addonPurchased: {
+        type: Boolean, // True if extended features are purchased
+      },
+      isActive: {
+        type: Boolean,
+        default: true,
+      },
+    },
+  ],
 })
 
 // Hash the password before saving
