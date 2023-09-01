@@ -28,8 +28,8 @@ const apiLimiter = rateLimit({
   max: 100,
 })
 
-const jwt = require("jsonwebtoken")
 
+const jsonwebtoken = require("jsonwebtoken")
 
 
 
