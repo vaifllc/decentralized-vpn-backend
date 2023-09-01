@@ -65,27 +65,51 @@ const checkBlacklistedToken = (req, res, next) => {
 
 // Middleware for protected routes
 const requireLogin = (req, res, next) => {
-  console.log("Entering requireLogin")
-  authenticateJWT(req, res, async (err) => {
-    if (err) {
-      console.log("Error in requireLogin:", err)
-      const message =
-        err.name === "UnauthorizedError"
-          ? "Invalid token or no token provided."
-          : err.message
-      return res.status(401).send({ message })
-    }
+  try {
+    console.log("Entering requireLogin")
 
-    // Verify if user exists in database
-    const userId = req.auth.id
-    const user = await User.findById(userId)
-    if (!user) {
-      return res.status(401).send({ message: "The user does not exist." })
-    }
+    authenticateJWT(req, res, async (err) => {
+      if (err) {
+        console.log("Error in requireLogin:", err)
+        const message =
+          err.name === "UnauthorizedError"
+            ? "Invalid token or no token provided."
+            : err.message
+        return res.status(401).send({ message })
+      }
 
-    next()
-  })
+      // Verify if the user exists in the database
+      const userId = req.auth ? req.auth.id : null
+
+      // Log the userId for debugging
+      console.log("UserId obtained from token:", userId)
+
+      if (!userId) {
+        console.log("No userId found in token")
+        return res
+          .status(401)
+          .send({ message: "Invalid token or no token provided." })
+      }
+
+      const user = await User.findById(userId)
+
+      if (!user) {
+        console.log("User not found in the database:", userId)
+        return res.status(401).send({ message: "The user does not exist." })
+      }
+
+      console.log("User found, proceeding to next middleware")
+      next()
+    })
+  } catch (error) {
+    console.error("Error in requireLogin:", error)
+    return res
+      .status(500)
+      .send({ message: "An internal server error occurred." })
+  }
 }
+
+
 
 // Error handling middleware for validation errors
 const handleValidationErrors = (req, res, next) => {
