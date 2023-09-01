@@ -225,7 +225,7 @@ router.get("/", function (req, res, next) {
 
 router.get("/status", checkStatus)
 
-router.get("/details", requireLogin, checkBlacklistedToken, getAuthenticatedUser)
+router.get("/details", checkToken, requireLogin, checkBlacklistedToken, getAuthenticatedUser)
 
 
 module.exports = router

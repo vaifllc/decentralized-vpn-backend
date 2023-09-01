@@ -8,11 +8,14 @@ const { v4: uuidv4 } = require("uuid")
 const BlacklistedToken = require('../models/BlacklistedToken');  // Replace with the actual path to your model
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY)
 const logger = require("../utils/logger")
+require("dotenv").config()
 const web3 = new Web3(
   new Web3.providers.HttpProvider(
     "https://mainnet.infura.io/v3/a93b9b8a10b34f78ae358e5fbbdd81dc"
   )
 )
+const { checkToken } = require("../middleware/authMiddleware")
+
 
 const HTTP_STATUS_CODES = {
   OK: 200,
