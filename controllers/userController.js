@@ -145,9 +145,11 @@ async function decentralizedRegistration(ethAddress, signature, res) {
 }
 
 const createToken = (userId) => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET, {
+  const token = jwt.sign({ userId }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRY || "1h",
   })
+  console.log("Generated Token:", token) // Log the generated token
+  return token
 }
 
 const sendResponse = (res, message, token) => {
@@ -155,7 +157,6 @@ const sendResponse = (res, message, token) => {
   console.log("Sending back response:", JSON.stringify(responseObject, null, 2))
   return res.status(200).json(responseObject)
 }
-
 
 exports.login = async (req, res) => {
   const { email, password, ethAddress, signature } = req.body
@@ -223,6 +224,7 @@ exports.login = async (req, res) => {
     return res.status(500).json({ error: "Server error" })
   }
 }
+
 
 // Each blacklisted token entry will have the format: { token: '...', userId: '...', expires: <timestamp> }
 exports.logout = async (req, res) => {
