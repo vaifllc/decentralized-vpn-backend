@@ -28,26 +28,43 @@ const apiLimiter = rateLimit({
   max: 100,
 })
 
+const jwt = require("jsonwebtoken")
+
+
 
 
 const authenticateJWT = jwt({
   secret: process.env.JWT_SECRET,
   algorithms: ["HS256"],
   requestProperty: "auth",
+  resultProperty: "decoded", // custom result handler
   getToken: function fromHeaderOrCookie(req) {
-    // Check for token in Authorization header
+    // Logging the token
     if (
       req.headers.authorization &&
       req.headers.authorization.split(" ")[0] === "Bearer"
     ) {
-      return req.headers.authorization.split(" ")[1]
+      const token = req.headers.authorization.split(" ")[1];
+      console.log("Token found in header:", token);
+      return token;
     }
-    // Check for token in cookies (if you decide to use this approach)
+
+    // Uncomment if you decide to use cookies for token storage
     // else if (req.cookies && req.cookies.token) {
-    //     return req.cookies.token;
+    //   console.log("Token found in cookies:", req.cookies.token);
+    //   return req.cookies.token;
     // }
-    return null // Return null if no token found
+
+    console.log("No token found");
+    return null;  // Return null if no token found
   },
+}).unless({ path: ['/users/register', '/users/login'] });  // Add your public routes here
+app.use((req, res, next) => {
+  if (req.decoded) {
+    req.auth = { userId: req.decoded.userId } // Assuming the decoded JWT has a userId field
+    console.log("Decoded JWT:", req.decoded)
+  }
+  next()
 })
 
 const checkBlacklistedToken = (req, res, next) => {
@@ -74,27 +91,26 @@ const requireLogin = (req, res, next) => {
           err.name === "UnauthorizedError"
             ? "Invalid token or no token provided."
             : err.message
-        return res.status(401).send({ message })
+        return res.status(401).json({ message })
       }
 
-      // Verify if the user exists in the database
-      const userId = req.auth ? req.auth.id : null
+      console.log("Auth object:", req.auth)
 
-      // Log the userId for debugging
+      const userId = req.auth ? req.auth.userId : null
       console.log("UserId obtained from token:", userId)
 
       if (!userId) {
         console.log("No userId found in token")
         return res
           .status(401)
-          .send({ message: "Invalid token or no token provided." })
+          .json({ message: "Invalid token or no token provided." })
       }
 
       const user = await User.findById(userId)
 
       if (!user) {
         console.log("User not found in the database:", userId)
-        return res.status(401).send({ message: "The user does not exist." })
+        return res.status(401).json({ message: "The user does not exist." })
       }
 
       console.log("User found, proceeding to next middleware")
@@ -104,19 +120,10 @@ const requireLogin = (req, res, next) => {
     console.error("Error in requireLogin:", error)
     return res
       .status(500)
-      .send({ message: "An internal server error occurred." })
-  }
-  if (req.headers.authorization) {
-    const token = req.headers.authorization.split(" ")[1];
-    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-      if (err) {
-        console.log('Manual JWT verification error:', err);
-      } else {
-        console.log('Manual JWT verification decoded:', decoded);
-      }
-    });
+      .json({ message: "An internal server error occurred." })
   }
 }
+
 
 
 
