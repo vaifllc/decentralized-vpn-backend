@@ -2,10 +2,10 @@ const express = require("express")
 const router = express.Router()
 require("dotenv").config()
 const geoip = require("geoip-lite")
-const User = require('../models/User');  // Import your User model
+const User = require("../models/User")
 const geolocationMiddleware = require("../middleware/geolocation")
 const { checkToken } = require("../middleware/authMiddleware")
-const { check, validationResult, oneOf } = require("express-validator") // Assuming you have express-validator installed
+const { check, validationResult, oneOf } = require("express-validator")
 const {
   register,
   login,
@@ -17,58 +17,46 @@ const {
   loginWithMFA,
   checkStatus,
   logout,
-  
-} = require("../controllers/userController") // Importing the new methods
-const { expressjwt: jwt } = require("express-jwt")
-
+} = require("../controllers/userController")
+const { expressjwt: expressJwt } = require("express-jwt")
 const rateLimit = require("express-rate-limit")
+const jsonwebtoken = require("jsonwebtoken")
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100,
 })
 
-
-const jsonwebtoken = require("jsonwebtoken")
-
-
-
-const authenticateJWT = jwt({
+const authenticateJWT = expressJwt({
   secret: process.env.JWT_SECRET,
   algorithms: ["HS256"],
   requestProperty: "auth",
-  resultProperty: "decoded", // custom result handler
+  resultProperty: "decoded",
   getToken: function fromHeaderOrCookie(req) {
-    // Logging the token
     if (
       req.headers.authorization &&
       req.headers.authorization.split(" ")[0] === "Bearer"
     ) {
-      const token = req.headers.authorization.split(" ")[1];
-      console.log("Token found in header:", token);
-      return token;
+      const token = req.headers.authorization.split(" ")[1]
+      console.log("Token found in header:", token)
+      return token
     }
-
-    // Uncomment if you decide to use cookies for token storage
-    // else if (req.cookies && req.cookies.token) {
-    //   console.log("Token found in cookies:", req.cookies.token);
-    //   return req.cookies.token;
-    // }
-
-    console.log("No token found");
-    return null;  // Return null if no token found
+    console.log("No token found")
+    return null
   },
-}).unless({ path: ['/users/register', '/users/login'] });  // Add your public routes here
-app.use((req, res, next) => {
+}).unless({ path: ["/users/register", "/users/login"] })
+
+// Moved this to router.use()
+router.use((req, res, next) => {
   if (req.decoded) {
-    req.auth = { userId: req.decoded.userId } // Assuming the decoded JWT has a userId field
+    req.auth = { userId: req.decoded.userId }
     console.log("Decoded JWT:", req.decoded)
   }
   next()
 })
 
 const checkBlacklistedToken = (req, res, next) => {
-    console.log("Entering checkBlacklistedToken")
+  console.log("Entering checkBlacklistedToken")
   const token = req.auth // Assuming 'requestProperty: "auth"' from jwt middleware
 
   // If token is in the blacklist, deny the request
@@ -123,9 +111,6 @@ const requireLogin = (req, res, next) => {
       .json({ message: "An internal server error occurred." })
   }
 }
-
-
-
 
 // Error handling middleware for validation errors
 const handleValidationErrors = (req, res, next) => {
@@ -227,34 +212,42 @@ router.get("/profile", requireLogin, getProfile) // This route should be protect
 // Update user profile
 // Then in your routes for updating the profile
 router.put(
-  '/profile',
+  "/profile",
   [
     oneOf(
       [
-        check('email').optional().isEmail().withMessage('Valid email is required'),
-        check('password').optional().isLength({ min: 6 }).withMessage('Password should be at least 6 characters'),
+        check("email")
+          .optional()
+          .isEmail()
+          .withMessage("Valid email is required"),
+        check("password")
+          .optional()
+          .isLength({ min: 6 })
+          .withMessage("Password should be at least 6 characters"),
         // Add more validations here for centralized auth
       ],
       [
-        check('ethAddress').optional().isLength({ min: 42, max: 42 }).withMessage('Valid Ethereum address is required'),
+        check("ethAddress")
+          .optional()
+          .isLength({ min: 42, max: 42 })
+          .withMessage("Valid Ethereum address is required"),
         // Add more validations here for decentralized auth
       ],
       {
-        message: 'Either email/password or ethAddress fields must be provided for update.'
+        message:
+          "Either email/password or ethAddress fields must be provided for update.",
       }
-    )
+    ),
   ],
   (req, res, next) => {
-    const errors = validationResult(req);
+    const errors = validationResult(req)
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ errors: errors.array() })
     }
-    next();
+    next()
   },
   updateProfile // Your updateProfile controller function
-);
-
-
+)
 
 router.post("/setupMFA", requireLogin, setupMFA)
 
@@ -270,12 +263,12 @@ router.get("/", function (req, res, next) {
 
 router.get("/status", checkStatus)
 
-router.get("/details",
+router.get(
+  "/details",
   // checkToken,
   requireLogin,
   // checkBlacklistedToken,
   getAuthenticatedUser
 )
-
 
 module.exports = router
