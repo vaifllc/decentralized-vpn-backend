@@ -283,7 +283,7 @@ exports.checkStatus = async (req, res) => {
     const userId = decodedToken.userId // using userId
 
     // Attempt to find the user in the database
-    const user = await User.findById(userId)
+    const user = await User.findOne({ userId: userId }) // use findOne and search by userId
 
     // If the user does not exist in the database, the user is not authenticated
     if (!user) {
@@ -293,7 +293,7 @@ exports.checkStatus = async (req, res) => {
       })
     }
 
-    // If user is found, return their authentication status and role
+    // If the user is found, return their authentication status and role
     return res.status(200).json({
       isAuthenticated: true,
       role: user.role,
