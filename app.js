@@ -105,5 +105,6 @@ const logger = winston.createLogger({
 
 const PORT = process.env.PORT || 3000
 app.listen(PORT, () => console.log(`Server started on port ${PORT}`))
+console.log("JWT_SECRET:", process.env.JWT_SECRET)
 
 module.exports = app

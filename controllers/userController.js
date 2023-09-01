@@ -225,7 +225,6 @@ exports.login = async (req, res) => {
   }
 }
 
-
 // Each blacklisted token entry will have the format: { token: '...', userId: '...', expires: <timestamp> }
 exports.logout = async (req, res) => {
   try {
@@ -260,9 +259,94 @@ exports.logout = async (req, res) => {
   }
 }
 
+exports.checkStatus = async (req, res) => {
+  // Extract the JWT token from the request headers
+  const token =
+    req.headers.authorization && req.headers.authorization.split(" ")[1]
 
+  if (!token) {
+    return res.status(401).json({
+      isAuthenticated: false,
+      message: "No token provided.",
+    })
+  }
 
+  try {
+    // Verify the token
+    const decodedToken = jwt.verify(token, process.env.JWT_SECRET)
 
+    // Extract the userId from the decoded token
+    const userId = decodedToken.userId
+
+    // Attempt to find the user in the database
+    const user = await User.findById(userId)
+
+    // If the user does not exist in the database, the user is not authenticated
+    if (!user) {
+      return res.status(401).json({
+        isAuthenticated: false,
+        message: "User not found in the database.",
+      })
+    }
+
+    // If user is found, return their authentication status and role
+    return res.status(200).json({
+      isAuthenticated: true,
+      role: user.role,
+      message: "User is authenticated.",
+    })
+  } catch (err) {
+    if (err.name === "JsonWebTokenError" || err.name === "TokenExpiredError") {
+      return res.status(401).json({
+        isAuthenticated: false,
+        message: "Invalid or expired token.",
+      })
+    }
+
+    // Handle unexpected errors
+    return res.status(500).json({
+      isAuthenticated: false,
+      message: "Server error. Please try again later.",
+      error: err.message,
+    })
+  }
+}
+
+exports.getAuthenticatedUser = async (req, res) => {
+  // Log the headers for debugging
+  console.log("Backend Headers:", req.headers)
+
+  // Log the user object if available (should be populated by your authentication middleware)
+  console.log("Backend User Object:", req.user)
+
+  // Check if the user ID is available in the request
+  if (!req.user || !req.user.id) {
+    console.log("Unauthorized access. Missing user ID in token.") // Debug log here
+    return res
+      .status(401)
+      .json({ message: "Unauthorized. No user ID found in token." })
+  }
+
+  try {
+    const userId = req.user.id // Get user ID from the decoded JWT token
+    console.log("Fetching details for User ID:", userId) // Debug log here
+
+    const user = await User.findById(userId).select("-password") // Fetch user without password field
+
+    // Check if the user exists
+    if (!user) {
+      console.log(`User with ID ${userId} not found.`) // Debug log here
+      return res.status(404).json({ message: "User not found" })
+    }
+
+    console.log("Fetched User:", user) // Debug log here
+    res.json(user)
+  } catch (error) {
+    // Log the error for debugging
+    console.error("Error fetching user:", error)
+    res.status(500).send("Server Error")
+  }
+}
 
 exports.logoutAllDevices = async (req, res) => {
     try {
@@ -496,94 +580,6 @@ async function updateUserService(userId, updateData) {
 }
 
 
-exports.checkStatus = async (req, res) => {
-  // Extract the JWT token from the request headers
-  const token =
-    req.headers.authorization && req.headers.authorization.split(" ")[1]
-
-  if (!token) {
-    return res.status(401).json({
-      isAuthenticated: false,
-      message: "No token provided.",
-    })
-  }
-
-  try {
-    // Verify the token
-    const decodedToken = jwt.verify(token, process.env.JWT_SECRET)
-
-    // Extract the userId from the decoded token
-    const userId = decodedToken.userId
-
-    // Attempt to find the user in the database
-    const user = await User.findById(userId)
-
-    // If the user does not exist in the database, the user is not authenticated
-    if (!user) {
-      return res.status(401).json({
-        isAuthenticated: false,
-        message: "User not found in the database.",
-      })
-    }
-
-    // If user is found, return their authentication status and role
-    return res.status(200).json({
-      isAuthenticated: true,
-      role: user.role,
-      message: "User is authenticated.",
-    })
-  } catch (err) {
-    if (err.name === "JsonWebTokenError" || err.name === "TokenExpiredError") {
-      return res.status(401).json({
-        isAuthenticated: false,
-        message: "Invalid or expired token.",
-      })
-    }
-
-    // Handle unexpected errors
-    return res.status(500).json({
-      isAuthenticated: false,
-      message: "Server error. Please try again later.",
-      error: err.message,
-    })
-  }
-}
-
-exports.getAuthenticatedUser = async (req, res) => {
-  // Log the headers for debugging
-  console.log("Backend Headers:", req.headers)
-
-  // Log the user object if available (should be populated by your authentication middleware)
-  console.log("Backend User Object:", req.user)
-
-  // Check if the user ID is available in the request
-  if (!req.user || !req.user.id) {
-    console.log("Unauthorized access. Missing user ID in token.") // Debug log here
-    return res
-      .status(401)
-      .json({ message: "Unauthorized. No user ID found in token." })
-  }
-
-  try {
-    const userId = req.user.id // Get user ID from the decoded JWT token
-    console.log("Fetching details for User ID:", userId) // Debug log here
-
-    const user = await User.findById(userId).select("-password") // Fetch user without password field
-
-    // Check if the user exists
-    if (!user) {
-      console.log(`User with ID ${userId} not found.`) // Debug log here
-      return res.status(404).json({ message: "User not found" })
-    }
-
-    console.log("Fetched User:", user) // Debug log here
-    res.json(user)
-  } catch (error) {
-    // Log the error for debugging
-    console.error("Error fetching user:", error)
-    res.status(500).send("Server Error")
-  }
-}
 
 
 

@@ -2,6 +2,11 @@ const jwt = require("jsonwebtoken")
 require("dotenv").config()
 
 const checkToken = (req, res, next) => {
+  console.log("Entering checkToken")
+    if (err) {
+      console.log("Error in checkToken:", err)
+      // ... rest of your code
+    }
   const token =
     req.headers["authorization"] && req.headers["authorization"].split(" ")[1]
   if (!token) {

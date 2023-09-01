@@ -51,11 +51,13 @@ const authenticateJWT = jwt({
 })
 
 const checkBlacklistedToken = (req, res, next) => {
+    console.log("Entering checkBlacklistedToken")
   const token = req.auth // Assuming 'requestProperty: "auth"' from jwt middleware
 
   // If token is in the blacklist, deny the request
   if (blacklistedTokens.some((blacklisted) => blacklisted.token === token)) {
     return res.status(401).json({ error: "Token is blacklisted" })
+    console.log("Token is blacklisted")
   }
 
   next()
@@ -63,6 +65,11 @@ const checkBlacklistedToken = (req, res, next) => {
 
 // Middleware for protected routes
 const requireLogin = (req, res, next) => {
+  console.log("Entering requireLogin")
+    if (err) {
+      console.log("Error in requireLogin:", err)
+      // ... rest of your code
+    }
   authenticateJWT(req, res, async (err) => {
     if (err) {
       const message =
@@ -226,7 +233,12 @@ router.get("/", function (req, res, next) {
 
 router.get("/status", checkStatus)
 
-router.get("/details", checkToken, requireLogin, checkBlacklistedToken, getAuthenticatedUser)
+router.get("/details",
+  // checkToken,
+  requireLogin,
+  // checkBlacklistedToken,
+  getAuthenticatedUser
+)
 
 
 module.exports = router
