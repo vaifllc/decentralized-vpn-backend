@@ -57,7 +57,6 @@ const checkBlacklistedToken = (req, res, next) => {
   // If token is in the blacklist, deny the request
   if (blacklistedTokens.some((blacklisted) => blacklisted.token === token)) {
     return res.status(401).json({ error: "Token is blacklisted" })
-    console.log("Token is blacklisted")
   }
 
   next()
@@ -106,6 +105,16 @@ const requireLogin = (req, res, next) => {
     return res
       .status(500)
       .send({ message: "An internal server error occurred." })
+  }
+  if (req.headers.authorization) {
+    const token = req.headers.authorization.split(" ")[1];
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+      if (err) {
+        console.log('Manual JWT verification error:', err);
+      } else {
+        console.log('Manual JWT verification decoded:', decoded);
+      }
+    });
   }
 }
 
