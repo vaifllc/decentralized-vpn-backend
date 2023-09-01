@@ -66,12 +66,9 @@ const checkBlacklistedToken = (req, res, next) => {
 // Middleware for protected routes
 const requireLogin = (req, res, next) => {
   console.log("Entering requireLogin")
-    if (err) {
-      console.log("Error in requireLogin:", err)
-      // ... rest of your code
-    }
   authenticateJWT(req, res, async (err) => {
     if (err) {
+      console.log("Error in requireLogin:", err)
       const message =
         err.name === "UnauthorizedError"
           ? "Invalid token or no token provided."
