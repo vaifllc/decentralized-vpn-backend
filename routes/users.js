@@ -56,16 +56,26 @@ const requireLogin = (req, res, next) => {
       if (err) {
         return res.status(401).json({ message: err.message })
       }
+
+      // Extract the userId from req.auth, which should now contain MongoDB's _id
       const userId = req.auth ? req.auth.userId : null
+
+      // If userId is missing, return an error
       if (!userId) {
         return res
           .status(401)
           .json({ message: "Invalid token or no token provided." })
       }
+
+      // Find the user in the database using MongoDB's _id
       const user = await User.findById(userId)
+
+      // If the user doesn't exist, return an error
       if (!user) {
         return res.status(401).json({ message: "The user does not exist." })
       }
+
+      // If everything checks out, proceed to the next middleware
       next()
     })
   } catch (error) {
@@ -74,6 +84,8 @@ const requireLogin = (req, res, next) => {
       .json({ message: "An internal server error occurred." })
   }
 }
+
+
 
 
 const checkBlacklistedToken = (req, res, next) => {

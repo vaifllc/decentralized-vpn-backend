@@ -82,7 +82,6 @@ async function centralizedRegistration(email, password, res) {
     }
 
     const newUser = new User({
-      userId: uuidv4(),
       email,
       password: hashedPassword,
       stripeCustomerId: stripeCustomer.id, // Store the Stripe Customer ID in your User model
@@ -132,7 +131,6 @@ async function decentralizedRegistration(ethAddress, signature, res) {
     }
 
   const newUser = new User({
-    userId: uuidv4(),
     ethAddress,
     nonce,
     stripeCustomerId: stripeCustomer.id, // Store the Stripe Customer ID in your User model
@@ -144,13 +142,13 @@ async function decentralizedRegistration(ethAddress, signature, res) {
     .json({ message: "User registered successfully (decentralized)" })
 }
 
-const createToken = (_id) => {
-  const token = jwt.sign({ userId: _id }, process.env.JWT_SECRET, {
+const createToken = (user) => {
+  const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRY || "1h",
   })
-  console.log("Generated Token:", token) // Log the generated token
   return token
 }
+
 
 
 const sendResponse = (res, message, token) => {
@@ -178,7 +176,7 @@ exports.login = async (req, res) => {
         return res.status(400).json({ error: "Invalid credentials" })
       }
 
-      const token = createToken(user._id)
+      const token = createToken(user)
       return sendResponse(res, "Logged in (centralized)", token)
     }
 
@@ -214,7 +212,7 @@ exports.login = async (req, res) => {
       user.sessions.push(newSession)
       await user.save()
 
-      const token = createToken(user._id)
+      const token = createToken(user)
       return sendResponse(res, "Logged in (decentralized)", token)
     }
 
