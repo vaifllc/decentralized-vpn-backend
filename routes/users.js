@@ -83,7 +83,6 @@ const requireLogin = (req, res, next) => {
       }
 
       console.log("Auth object:", req.auth)
-
       const userId = req.auth ? req.auth.userId : null
       console.log("UserId obtained from token:", userId)
 
@@ -94,7 +93,8 @@ const requireLogin = (req, res, next) => {
           .json({ message: "Invalid token or no token provided." })
       }
 
-      const user = await User.findById(userId)
+      // Change findById to findOne
+      const user = await User.findOne({ userId: userId })
 
       if (!user) {
         console.log("User not found in the database:", userId)
@@ -207,7 +207,7 @@ router.post(
 router.post("/logout", logout)
 
 // Fetch user profile
-router.get("/profile", requireLogin, getProfile) // This route should be protected
+router.get("/profile", authenticateJWT, requireLogin, getProfile)
 
 // Update user profile
 // Then in your routes for updating the profile
@@ -263,12 +263,6 @@ router.get("/", function (req, res, next) {
 
 router.get("/status", checkStatus)
 
-router.get(
-  "/details",
-  // checkToken,
-  requireLogin,
-  // checkBlacklistedToken,
-  getAuthenticatedUser
-)
+router.get("/details", authenticateJWT, requireLogin, getAuthenticatedUser)
 
 module.exports = router

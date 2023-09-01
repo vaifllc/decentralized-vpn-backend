@@ -316,37 +316,39 @@ exports.getAuthenticatedUser = async (req, res) => {
   // Log the headers for debugging
   console.log("Backend Headers:", req.headers)
 
-  // Log the user object if available (should be populated by your authentication middleware)
-  console.log("Backend User Object:", req.user)
+  // Log the auth object if available (should be populated by your authentication middleware)
+  console.log("Backend Auth Object:", req.auth) // Changed from req.user to req.auth
 
   // Check if the user ID is available in the request
-  if (!req.user || !req.user.id) {
-    console.log("Unauthorized access. Missing user ID in token.") // Debug log here
+  if (!req.auth || !req.auth.userId) {
+    // Changed from req.user.id to req.auth.userId
+    console.log("Unauthorized access. Missing user ID in token.")
     return res
       .status(401)
       .json({ message: "Unauthorized. No user ID found in token." })
   }
 
   try {
-    const userId = req.user.id // Get user ID from the decoded JWT token
-    console.log("Fetching details for User ID:", userId) // Debug log here
+    const userId = req.auth.userId // Get user ID from req.auth object
+    console.log("Fetching details for User ID:", userId)
 
-    const user = await User.findById(userId).select("-password") // Fetch user without password field
+    // Use findOne to find the user by userId
+    const user = await User.findOne({ userId: userId }).select("-password")
 
     // Check if the user exists
     if (!user) {
-      console.log(`User with ID ${userId} not found.`) // Debug log here
+      console.log(`User with ID ${userId} not found.`)
       return res.status(404).json({ message: "User not found" })
     }
 
-    console.log("Fetched User:", user) // Debug log here
+    console.log("Fetched User:", user)
     res.json(user)
   } catch (error) {
-    // Log the error for debugging
     console.error("Error fetching user:", error)
     res.status(500).send("Server Error")
   }
 }
+
 
 exports.logoutAllDevices = async (req, res) => {
     try {
