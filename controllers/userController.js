@@ -228,13 +228,11 @@ exports.login = async (req, res) => {
 // Each blacklisted token entry will have the format: { token: '...', userId: '...', expires: <timestamp> }
 exports.logout = async (req, res) => {
   try {
-    // Step 1: Check if the Authorization header exists
     const authorizationHeader = req.headers.authorization
     if (!authorizationHeader) {
       return res.status(400).json({ error: "No authorization header provided" })
     }
 
-    // Step 2: Validate the token format and decode it
     const token = authorizationHeader.split(" ")[1]
     if (!token) {
       return res.status(400).json({ error: "Invalid authorization format" })
@@ -245,11 +243,10 @@ exports.logout = async (req, res) => {
       return res.status(400).json({ error: "Invalid token" })
     }
 
-    // Step 3: Add token to MongoDB
     const newBlacklistedToken = new BlacklistedToken({
       token: token,
       userId: decodedToken.userId,
-      expires: decodedToken.exp * 1000, // Convert JWT expiration to milliseconds
+      expires: decodedToken.exp * 1000,
     })
 
     await newBlacklistedToken.save()
@@ -257,11 +254,12 @@ exports.logout = async (req, res) => {
 
     return res.status(200).json({ message: "Successfully logged out" })
   } catch (error) {
-    logger.error("Error during logout:", error)
     console.error("Error during logout:", error)
     return res.status(500).json({ error: "Server error" })
   }
 }
+
+
 
 
 
