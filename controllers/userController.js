@@ -144,10 +144,20 @@ async function decentralizedRegistration(ethAddress, signature, res) {
     .json({ message: "User registered successfully (decentralized)" })
 }
 
+const createToken = (userId) => {
+  return jwt.sign({ userId }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRY || "1h",
+  })
+}
+
+const sendResponse = (res, message, token) => {
+  const responseObject = { message, token }
+  console.log("Sending back response:", JSON.stringify(responseObject, null, 2))
+  return res.status(200).json(responseObject)
+}
+
 exports.login = async (req, res) => {
   const { email, password, ethAddress, signature } = req.body
-
-  console.log("Login request received:", req.body)
 
   try {
     if (email && password) {
@@ -158,33 +168,24 @@ exports.login = async (req, res) => {
         return res.status(400).json({ error: "Invalid credentials" })
       }
 
-      console.log("User found:", user)
-
       const isMatch = await bcrypt.compare(password, user.password)
-      console.log("Retrieved password hash length:", user.password.length)
-      console.log(Buffer.from(user.password).toString("hex"))
-      
-
-
 
       if (!isMatch) {
         console.log("Password mismatch for email:", email)
         return res.status(400).json({ error: "Invalid credentials" })
       }
 
-      const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-        expiresIn: "1h",
-      })
-      return res.status(200).json({ message: "Logged in (centralized)", token })
-    } else if (ethAddress && signature) {
+      const token = createToken(user._id)
+      return sendResponse(res, "Logged in (centralized)", token)
+    }
+
+    if (ethAddress && signature) {
       const user = await User.findOne({ ethAddress })
 
       if (!user) {
         console.log("No user found with Ethereum address:", ethAddress)
         return res.status(400).json({ error: "Login failed" })
       }
-
-      console.log("User found with Ethereum address:", user)
 
       const recoveredAddress = web3.eth.accounts.recover(user.nonce, signature)
 
@@ -195,34 +196,28 @@ exports.login = async (req, res) => {
 
       user.nonce = crypto.randomBytes(16).toString("hex")
 
-      // Common logic for both authentication types
       const newSession = {
         sessionId: crypto.randomBytes(16).toString("hex"),
         createdAt: new Date(),
         event: "Login",
         device: req.headers["user-agent"],
         ip: req.ip,
-        // Populate these fields using a third-party geolocation API
         location: "",
         isp: "",
-        appVersion: "", // Get this information from your client app
+        appVersion: "",
         isActive: true,
       }
-          user.sessions.push(newSession)
-          await user.save()
 
-      const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-        expiresIn: "1h",
-      })
-      return res
-        .status(200)
-        .json({ message: "Logged in (decentralized)", token })
-    } else {
-      console.log("Invalid login data:", req.body)
-      return res.status(400).json({ error: "Invalid login data" })
+      user.sessions.push(newSession)
+      await user.save()
+
+      const token = createToken(user._id)
+      return sendResponse(res, "Logged in (decentralized)", token)
     }
+
+    console.log("Invalid login data:", req.body)
+    return res.status(400).json({ error: "Invalid login data" })
   } catch (error) {
-    logger.error("Error during login:", error)
     console.error("Error during login:", error)
     return res.status(500).json({ error: "Server error" })
   }
