@@ -82,6 +82,7 @@ async function centralizedRegistration(email, password, res) {
     }
 
     const newUser = new User({
+      userId: uuidv4(),
       email,
       password: hashedPassword,
       stripeCustomerId: stripeCustomer.id, // Store the Stripe Customer ID in your User model
@@ -131,6 +132,7 @@ async function decentralizedRegistration(ethAddress, signature, res) {
     }
 
   const newUser = new User({
+    userId: uuidv4(),
     ethAddress,
     nonce,
     stripeCustomerId: stripeCustomer.id, // Store the Stripe Customer ID in your User model
@@ -143,11 +145,12 @@ async function decentralizedRegistration(ethAddress, signature, res) {
 }
 
 const createToken = (user) => {
-  const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+  const token = jwt.sign({ userId: user.userId }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRY || "1h",
   })
   return token
 }
+
 
 
 
@@ -176,7 +179,8 @@ exports.login = async (req, res) => {
         return res.status(400).json({ error: "Invalid credentials" })
       }
 
-      const token = createToken(user)
+      const token = createToken(user) // This will use user.userId internally
+
       return sendResponse(res, "Logged in (centralized)", token)
     }
 
@@ -212,7 +216,8 @@ exports.login = async (req, res) => {
       user.sessions.push(newSession)
       await user.save()
 
-      const token = createToken(user)
+      const token = createToken(user) // This will use user.userId internally
+
       return sendResponse(res, "Logged in (decentralized)", token)
     }
 
@@ -275,7 +280,7 @@ exports.checkStatus = async (req, res) => {
     const decodedToken = jwt.verify(token, process.env.JWT_SECRET)
 
     // Extract the userId from the decoded token
-    const userId = decodedToken.userId
+    const userId = decodedToken.userId // using userId
 
     // Attempt to find the user in the database
     const user = await User.findById(userId)
@@ -332,7 +337,7 @@ exports.getAuthenticatedUser = async (req, res) => {
     console.log("Fetching details for User ID:", userId)
 
     // Use findOne to find the user by userId
-    const user = await User.findOne({ userId: userId }).select("-password")
+    const user = await User.findOne({ userId: userId }).select("-password") // Use userId
 
     // Check if the user exists
     if (!user) {

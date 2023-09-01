@@ -1,5 +1,5 @@
 const express = require("express")
-const { ObjectID } = require("mongodb")
+const ObjectID = require("mongodb").ObjectID
 const router = express.Router()
 require("dotenv").config()
 const geoip = require("geoip-lite")
@@ -58,28 +58,22 @@ const requireLogin = (req, res, next) => {
         return res.status(401).json({ message: err.message })
       }
 
-      // Extract the userId from req.auth, which should now contain MongoDB's _id
+      // Extract the userId from req.auth
       const userId = req.auth ? req.auth.userId : null
 
-      // If userId is missing, return an error
       if (!userId) {
         return res
           .status(401)
           .json({ message: "Invalid token or no token provided." })
       }
 
-      // Convert the string into an ObjectID
-      const userIdObject = new ObjectID(userId)
+      // Find the user in the database using the custom userId
+      const user = await User.findOne({ userId: userId })
 
-      // Find the user in the database using MongoDB's _id
-      const user = await User.findById(userIdObject)
-
-      // If the user doesn't exist, return an error
       if (!user) {
         return res.status(401).json({ message: "The user does not exist." })
       }
 
-      // If everything checks out, proceed to the next middleware
       next()
     })
   } catch (error) {
