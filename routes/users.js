@@ -169,7 +169,8 @@ router.post(
     }
     next()
   },
-  loginapiLimiter,
+  login,
+  apiLimiter,
   geolocationMiddleware,
   login // Your login controller function
 )
