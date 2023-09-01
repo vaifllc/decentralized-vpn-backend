@@ -1,4 +1,5 @@
 const express = require("express")
+const { ObjectID } = require("mongodb")
 const router = express.Router()
 require("dotenv").config()
 const geoip = require("geoip-lite")
@@ -67,8 +68,11 @@ const requireLogin = (req, res, next) => {
           .json({ message: "Invalid token or no token provided." })
       }
 
+      // Convert the string into an ObjectID
+      const userIdObject = new ObjectID(userId)
+
       // Find the user in the database using MongoDB's _id
-      const user = await User.findById(userId)
+      const user = await User.findById(userIdObject)
 
       // If the user doesn't exist, return an error
       if (!user) {
@@ -84,6 +88,7 @@ const requireLogin = (req, res, next) => {
       .json({ message: "An internal server error occurred." })
   }
 }
+
 
 
 
