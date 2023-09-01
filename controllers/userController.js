@@ -14,7 +14,7 @@ const web3 = new Web3(
     "https://mainnet.infura.io/v3/a93b9b8a10b34f78ae358e5fbbdd81dc"
   )
 )
-const { checkToken } = require("../middleware/authMiddleware")
+
 
 
 const HTTP_STATUS_CODES = {

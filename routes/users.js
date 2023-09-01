@@ -4,7 +4,7 @@ require("dotenv").config()
 const geoip = require("geoip-lite")
 const User = require('../models/User');  // Import your User model
 const geolocationMiddleware = require("../middleware/geolocation")
-
+const { checkToken } = require("../middleware/authMiddleware")
 const { check, validationResult, oneOf } = require("express-validator") // Assuming you have express-validator installed
 const {
   register,
@@ -17,6 +17,7 @@ const {
   loginWithMFA,
   checkStatus,
   logout,
+  
 } = require("../controllers/userController") // Importing the new methods
 const { expressjwt: jwt } = require("express-jwt")
 
