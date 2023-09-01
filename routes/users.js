@@ -20,6 +20,12 @@ const {
 } = require("../controllers/userController") // Importing the new methods
 const { expressjwt: jwt } = require("express-jwt")
 
+const rateLimit = require("express-rate-limit")
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100,
+})
 
 
 
@@ -109,9 +115,7 @@ const handleValidationErrors = (req, res, next) => {
  *       400:
  *         description: Bad request
  */
-router.post(
-  "/register",register
-)
+router.post("/register", register, apiLimiter)
 
 /**
  * @swagger
@@ -137,31 +141,38 @@ router.post(
 // Login route
 // Then in your routes
 router.post(
-  '/login',geolocationMiddleware,
+  "/login",
   [
     oneOf(
       [
-        check('email').isEmail().withMessage('Valid email is required'),
-        check('password').isLength({ min: 6 }).withMessage('Password should be at least 6 characters')
+        check("email").isEmail().withMessage("Valid email is required"),
+        check("password")
+          .isLength({ min: 6 })
+          .withMessage("Password should be at least 6 characters"),
       ],
       [
-        check('ethAddress').isLength({ min: 42, max: 42 }).withMessage('Valid Ethereum address is required'),
-        check('signature').exists().withMessage('Signature is required')
+        check("ethAddress")
+          .isLength({ min: 42, max: 42 })
+          .withMessage("Valid Ethereum address is required"),
+        check("signature").exists().withMessage("Signature is required"),
       ],
       {
-        message: 'Either email/password or ethAddress/signature must be provided.'
+        message:
+          "Either email/password or ethAddress/signature must be provided.",
       }
-    )
+    ),
   ],
   (req, res, next) => {
-    const errors = validationResult(req);
+    const errors = validationResult(req)
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ errors: errors.array() })
     }
-    next();
+    next()
   },
+  loginapiLimiter,
+  geolocationMiddleware,
   login // Your login controller function
-);
+)
 router.post("/logout", logout)
 
 // Fetch user profile

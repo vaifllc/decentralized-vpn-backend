@@ -7,7 +7,7 @@ const { validationResult } = require("express-validator")
 const { v4: uuidv4 } = require("uuid")
 const BlacklistedToken = require('../models/BlacklistedToken');  // Replace with the actual path to your model
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY)
-
+const logger = require("../utils/logger")
 const web3 = new Web3(
   new Web3.providers.HttpProvider(
     "https://mainnet.infura.io/v3/a93b9b8a10b34f78ae358e5fbbdd81dc"
@@ -45,6 +45,7 @@ exports.register = async (req, res) => {
         .json({ error: "Invalid registration data" })
     }
   } catch (error) {
+    logger.error("Error during registration:", error)
     console.error("Error during registration:", error)
     return res
       .status(HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR)
@@ -89,6 +90,7 @@ async function centralizedRegistration(email, password, res) {
       .status(HTTP_STATUS_CODES.CREATED)
       .json({ message: "User registered successfully (centralized)" })
   } catch (error) {
+    logger.error("Error during registration:", error)
     console.error("Error during registration:", error)
     return res.status(500).json({ error: "Server error" })
   }
@@ -120,6 +122,11 @@ async function decentralizedRegistration(ethAddress, signature, res) {
   // Here, you'd verify the signature using the ethAddress and nonce.
   // If valid, proceed with registration.
   // Note: Actual verification would involve using Ethereum libraries.
+
+    const isSignatureValid = web3.eth.accounts.recover(signature) === ethAddress
+    if (!isSignatureValid) {
+      return res.status(401).json({ error: "Invalid Ethereum signature" })
+    }
 
   const newUser = new User({
     userId: uuidv4(),
@@ -212,6 +219,7 @@ exports.login = async (req, res) => {
       return res.status(400).json({ error: "Invalid login data" })
     }
   } catch (error) {
+    logger.error("Error during login:", error)
     console.error("Error during login:", error)
     return res.status(500).json({ error: "Server error" })
   }
@@ -249,6 +257,7 @@ exports.logout = async (req, res) => {
 
     return res.status(200).json({ message: "Successfully logged out" })
   } catch (error) {
+    logger.error("Error during logout:", error)
     console.error("Error during logout:", error)
     return res.status(500).json({ error: "Server error" })
   }
@@ -268,6 +277,7 @@ exports.logoutAllDevices = async (req, res) => {
 
         return res.status(HTTP_STATUS_CODES.OK).json({ message: "Successfully logged out from all devices" });
     } catch (error) {
+      logger.error("Error during logout from all devices:", error)
         console.error("Error during logout from all devices:", error);
         return res.status(HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR).json({ error: "Server error" });
     }
@@ -352,6 +362,7 @@ exports.getProfile = async (req, res) => {
 
     res.json(user)
   } catch (error) {
+    logger.error("Error fetching user profile:", error)
     res.status(500).json({ error: "Error fetching user profile" })
   }
 }
@@ -382,8 +393,10 @@ exports.updateProfile = async (req, res) => {
     res.json(user)
   } catch (error) {
     if (error.name === "ValidationError") {
+      logger.error("ValidationError:", error)
       return res.status(400).json({ error: error.message })
     }
+    logger.error("Error updating user profile:", error)
     res.status(500).json({ error: "Error updating user profile" })
   }
 }
@@ -422,6 +435,7 @@ exports.updateUser = async (req, res) => {
     // Return the updated user
     return res.status(200).json({ message: "User updated successfully", user })
   } catch (error) {
+    logger.error(`Error updating user: ${error}`)
     console.error(`Error updating user: ${error}`)
 
     // Log this error event
@@ -557,6 +571,7 @@ exports.getAuthenticatedUser = async (req, res) => {
 
     res.json(user)
   } catch (error) {
+    logger.error("Error fetching user:", error)
     console.error("Error fetching user:", error)
     res.status(500).send("Server Error")
   }
