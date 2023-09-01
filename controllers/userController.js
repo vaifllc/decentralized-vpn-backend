@@ -144,13 +144,14 @@ async function decentralizedRegistration(ethAddress, signature, res) {
     .json({ message: "User registered successfully (decentralized)" })
 }
 
-const createToken = (userId) => {
-  const token = jwt.sign({ userId }, process.env.JWT_SECRET, {
+const createToken = (_id) => {
+  const token = jwt.sign({ userId: _id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRY || "1h",
   })
   console.log("Generated Token:", token) // Log the generated token
   return token
 }
+
 
 const sendResponse = (res, message, token) => {
   const responseObject = { message, token, user: { role: "user" } }

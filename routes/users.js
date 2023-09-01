@@ -37,23 +37,44 @@ const authenticateJWT = expressJwt({
       req.headers.authorization &&
       req.headers.authorization.split(" ")[0] === "Bearer"
     ) {
-      const token = req.headers.authorization.split(" ")[1]
-      console.log("Token found in header:", token)
-      return token
+      return req.headers.authorization.split(" ")[1]
     }
-    console.log("No token found")
     return null
   },
 }).unless({ path: ["/users/register", "/users/login"] })
 
-// Moved this to router.use()
 router.use((req, res, next) => {
   if (req.decoded) {
     req.auth = { userId: req.decoded.userId }
-    console.log("Decoded JWT:", req.decoded)
   }
   next()
 })
+
+const requireLogin = (req, res, next) => {
+  try {
+    authenticateJWT(req, res, async (err) => {
+      if (err) {
+        return res.status(401).json({ message: err.message })
+      }
+      const userId = req.auth ? req.auth.userId : null
+      if (!userId) {
+        return res
+          .status(401)
+          .json({ message: "Invalid token or no token provided." })
+      }
+      const user = await User.findById(userId)
+      if (!user) {
+        return res.status(401).json({ message: "The user does not exist." })
+      }
+      next()
+    })
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "An internal server error occurred." })
+  }
+}
+
 
 const checkBlacklistedToken = (req, res, next) => {
   console.log("Entering checkBlacklistedToken")
@@ -65,51 +86,6 @@ const checkBlacklistedToken = (req, res, next) => {
   }
 
   next()
-}
-
-// Middleware for protected routes
-const requireLogin = (req, res, next) => {
-  try {
-    console.log("Entering requireLogin")
-
-    authenticateJWT(req, res, async (err) => {
-      if (err) {
-        console.log("Error in requireLogin:", err)
-        const message =
-          err.name === "UnauthorizedError"
-            ? "Invalid token or no token provided."
-            : err.message
-        return res.status(401).json({ message })
-      }
-
-      console.log("Auth object:", req.auth)
-      const userId = req.auth ? req.auth.userId : null
-      console.log("UserId obtained from token:", userId)
-
-      if (!userId) {
-        console.log("No userId found in token")
-        return res
-          .status(401)
-          .json({ message: "Invalid token or no token provided." })
-      }
-
-      // Change findById to findOne
-      const user = await User.findOne({ userId: userId })
-
-      if (!user) {
-        console.log("User not found in the database:", userId)
-        return res.status(401).json({ message: "The user does not exist." })
-      }
-
-      console.log("User found, proceeding to next middleware")
-      next()
-    })
-  } catch (error) {
-    console.error("Error in requireLogin:", error)
-    return res
-      .status(500)
-      .json({ message: "An internal server error occurred." })
-  }
 }
 
 // Error handling middleware for validation errors
