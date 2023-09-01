@@ -552,10 +552,15 @@ exports.checkStatus = async (req, res) => {
 }
 
 exports.getAuthenticatedUser = async (req, res) => {
-  console.log("Backend Headers:", req.headers) // Log the headers
+  // Log the headers for debugging
+  console.log("Backend Headers:", req.headers)
+
+  // Log the user object if available (should be populated by your authentication middleware)
+  console.log("Backend User Object:", req.user)
 
   // Check if the user ID is available in the request
   if (!req.user || !req.user.id) {
+    console.log("Unauthorized access. Missing user ID in token.") // Debug log here
     return res
       .status(401)
       .json({ message: "Unauthorized. No user ID found in token." })
@@ -563,20 +568,25 @@ exports.getAuthenticatedUser = async (req, res) => {
 
   try {
     const userId = req.user.id // Get user ID from the decoded JWT token
+    console.log("Fetching details for User ID:", userId) // Debug log here
+
     const user = await User.findById(userId).select("-password") // Fetch user without password field
 
     // Check if the user exists
     if (!user) {
+      console.log(`User with ID ${userId} not found.`) // Debug log here
       return res.status(404).json({ message: "User not found" })
     }
 
+    console.log("Fetched User:", user) // Debug log here
     res.json(user)
   } catch (error) {
-    logger.error("Error fetching user:", error)
+    // Log the error for debugging
     console.error("Error fetching user:", error)
     res.status(500).send("Server Error")
   }
 }
+
 
 
 
