@@ -151,10 +151,11 @@ const createToken = (userId) => {
 }
 
 const sendResponse = (res, message, token) => {
-  const responseObject = { message, token }
+  const responseObject = { message, token, user: { role: "user" } }
   console.log("Sending back response:", JSON.stringify(responseObject, null, 2))
   return res.status(200).json(responseObject)
 }
+
 
 exports.login = async (req, res) => {
   const { email, password, ethAddress, signature } = req.body
