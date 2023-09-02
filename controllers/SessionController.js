@@ -72,6 +72,66 @@ exports.revokeSession = async (req, res) => {
   }
 };
 
+exports.toggleActivityLogs = async (req, res) => {
+  try {
+    const userId = req.auth.userId // Assuming user ID is available in request
+    const user = await User.findById(userId)
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" })
+    }
+
+    // Toggle the activity logs setting
+    user.logSettings.enableActivityLogs = !user.logSettings.enableActivityLogs
+    await user.save()
+
+    res.status(200).json({ isEnabled: user.logSettings.enableActivityLogs })
+  } catch (error) {
+    console.error("Error toggling activity logs:", error)
+    res.status(500).json({ error: "Internal Server Error" })
+  }
+}
+
+exports.toggleActivityLogs = async (req, res) => {
+  try {
+    const userId = req.auth.userId // Assuming user ID is available in request
+    const user = await User.findById(userId)
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" })
+    }
+
+    // Toggle the activity logs setting
+    user.logSettings.enableActivityLogs = !user.logSettings.enableActivityLogs
+    await user.save()
+
+    res.status(200).json({ isEnabled: user.logSettings.enableActivityLogs })
+  } catch (error) {
+    console.error("Error toggling activity logs:", error)
+    res.status(500).json({ error: "Internal Server Error" })
+  }
+}
+
+exports.toggleAdvancedLogs = async (req, res) => {
+  try {
+    const userId = req.auth.userId
+    const user = await User.findById(userId)
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" })
+    }
+
+    // Toggle the advanced logs setting
+    user.logSettings.enableAdvancedLogs = !user.logSettings.enableAdvancedLogs
+    await user.save()
+
+    res.status(200).json({ isEnabled: user.logSettings.enableAdvancedLogs })
+  } catch (error) {
+    console.error("Error toggling advanced logs:", error)
+    res.status(500).json({ error: "Internal Server Error" })
+  }
+}
+
 
 
 // Add more methods as needed
