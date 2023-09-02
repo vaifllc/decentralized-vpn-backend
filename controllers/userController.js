@@ -309,32 +309,37 @@ exports.logout = async (req, res) => {
 
     console.log("Decoded Token:", decodedToken) // Additional log
 
-    const newBlacklistedToken = new BlacklistedToken({
-      token: token,
-      userId: decodedToken.userId, // Ensure it's a string
-      expires: decodedToken.exp * 1000, // Add TTL here if your DB supports it
-    })
+    // Check if the token already exists in the blacklistedtokens collection
+    const existingToken = await BlacklistedToken.findOne({ token: token })
+    if (!existingToken) {
+      const newBlacklistedToken = new BlacklistedToken({
+        token: token,
+        userId: decodedToken.userId, // Ensure it's a string
+        expires: decodedToken.exp * 1000, // Add TTL here if your DB supports it
+      })
 
-    await newBlacklistedToken.save()
-    console.log(`Token from user ${decodedToken.userId} added to blacklist`)
+      await newBlacklistedToken.save()
+      console.log(`Token from user ${decodedToken.userId} added to blacklist`)
+    }
+
     // Retrieve the user based on the userId in the decoded token
-const user = await User.findOne({ userId: decodedToken.userId })
-if (!user) {
-  return res.status(404).json({ error: "User not found" })
-}
+    const user = await User.findOne({ userId: decodedToken.userId })
+    if (!user) {
+      return res.status(404).json({ error: "User not found" })
+    }
 
-if (
-  user &&
-  user.logSettings &&
-  typeof user.logSettings.enableAdvancedLogs !== "undefined"
-) {
-  await createSecurityLog(
-    user,
-    "Logout",
-    req,
-    user.logSettings.enableAdvancedLogs
-  )
-}
+    if (
+      user &&
+      user.logSettings &&
+      typeof user.logSettings.enableAdvancedLogs !== "undefined"
+    ) {
+      await createSecurityLog(
+        user,
+        "Logout",
+        req,
+        user.logSettings.enableAdvancedLogs
+      )
+    }
 
     return res.status(200).json({ message: "Successfully logged out" })
   } catch (error) {
@@ -342,6 +347,7 @@ if (
     return res.status(500).json({ error: "Internal Server Error" })
   }
 }
+
 
 
 
