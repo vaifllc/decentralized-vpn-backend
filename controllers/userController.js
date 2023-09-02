@@ -208,9 +208,15 @@ exports.login = async (req, res) => {
         appVersion: "",
         isActive: true,
       }
-
+      console.log("User sessions: ", user.sessions)
       user.sessions.push(newSession)
-      await user.save()
+      
+      try {
+        await user.save()
+      } catch (error) {
+        console.error("An error occurred while saving the user: ", error)
+      }
+
 
       const token = createToken(user) // This will use user.userId internally
 
