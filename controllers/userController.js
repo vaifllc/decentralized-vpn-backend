@@ -157,10 +157,12 @@ const sendResponse = (res, message, token) => {
 }
 
 exports.login = async (req, res) => {
+  console.log("Request body:", req.body) // Log the request body
   const { email, password, ethAddress, signature } = req.body
 
   try {
     if (email && password) {
+      console.log("Attempting centralized login")
       const user = await User.findOne({ email }).select("+password")
 
       if (!user) {
@@ -176,11 +178,11 @@ exports.login = async (req, res) => {
       }
 
       const token = createToken(user) // This will use user.userId internally
-
       return sendResponse(res, "Logged in (centralized)", token)
     }
 
     if (ethAddress && signature) {
+      console.log("Attempting decentralized login")
       const user = await User.findOne({ ethAddress })
 
       if (!user) {
@@ -208,25 +210,25 @@ exports.login = async (req, res) => {
         appVersion: "",
         isActive: true,
       }
-      console.log("User sessions: ", user.sessions)
+
+      console.log("Adding new session:", newSession)
       user.sessions.push(newSession)
-      
+
       try {
         await user.save()
+        console.log("User successfully saved.")
       } catch (error) {
-        console.error("An error occurred while saving the user: ", error)
+        console.error("An error occurred while saving the user:", error)
       }
 
-
       const token = createToken(user) // This will use user.userId internally
-
       return sendResponse(res, "Logged in (decentralized)", token)
     }
 
-    console.log("Invalid login data:", req.body)
-    return res.status(400).json({ error: "Invalid login data" })
+    console.log("None of the conditions met for login")
+    return res.status(400).json({ error: "Invalid login conditions" })
   } catch (error) {
-    console.error("Error during login:", error)
+    console.error("An unexpected error occurred:", error)
     return res.status(500).json({ error: "Server error" })
   }
 }
