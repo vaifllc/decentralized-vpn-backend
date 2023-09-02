@@ -1,4 +1,3 @@
-const router = express.Router()
 const express = require("express")
 const SessionController = require("../controllers/SessionController")
 const { expressjwt: expressJwt } = require("express-jwt")
@@ -52,6 +51,9 @@ const requireLogin = (req, res, next) => {
   }
 }
 
+
+const router = express.Router()
+
 // Routes for session management
 router.post(
   "/create",
@@ -74,12 +76,7 @@ router.post(
   requireLogin,
   SessionController.createSession
 )
-router.get(
-  "/sessions/",
-  authenticateJWT,
-  requireLogin,
-  SessionController.getSessions
-)
+router.get("/sessions/", authenticateJWT, requireLogin, SessionController.getSessions)
 router.post(
   "/sessions/revoke",
   authenticateJWT,
