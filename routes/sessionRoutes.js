@@ -76,7 +76,13 @@ router.post(
   requireLogin,
   SessionController.createSession
 )
-router.get("/sessions/", authenticateJWT, requireLogin, SessionController.getSessions)
+router.get(
+  "/sessions/:userId",
+  authenticateJWT,
+  requireLogin,
+  SessionController.getSessions
+)
+
 router.post(
   "/sessions/revoke",
   authenticateJWT,

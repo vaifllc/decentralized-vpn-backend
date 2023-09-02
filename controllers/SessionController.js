@@ -32,7 +32,7 @@ exports.createSession = async (req, res) => {
 
 exports.getSessions = async (req, res) => {
   try {
-    const { userId } = req.params
+    const userId = req.params.userId
     const user = await User.findById(userId).select("sessions")
 
     if (!user) {
