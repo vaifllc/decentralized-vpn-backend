@@ -150,11 +150,12 @@ const createToken = (user) => {
   return token
 }
 
-const sendResponse = (res, message, token) => {
-  const responseObject = { message, token, user: { role: "user" } }
+const sendResponse = (res, message, token, userId) => {
+  const responseObject = { message, token, user: { role: "user", userId } }
   console.log("Sending back response:", JSON.stringify(responseObject, null, 2))
   return res.status(200).json(responseObject)
 }
+
 
 // Helper function to create a security log
 const createSecurityLog = async (user, event, req, advancedLogEnabled) => {
@@ -271,7 +272,7 @@ exports.login = async (req, res) => {
       }
 
       const token = createToken(user)
-      return sendResponse(res, "Logged in (centralized)", token)
+      return sendResponse(res, "Logged in (centralized)", token, user.userId)
     }
     // The rest of your code remains unchanged
   } catch (error) {
