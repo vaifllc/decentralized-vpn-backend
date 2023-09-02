@@ -233,6 +233,7 @@ exports.login = async (req, res) => {
   }
 }
 
+
 // Each blacklisted token entry will have the format: { token: '...', userId: '...', expires: <timestamp> }
 exports.logout = async (req, res) => {
   try {
