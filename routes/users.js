@@ -23,7 +23,6 @@ const SessionController = require("../controllers/SessionController");
 const { expressjwt: expressJwt } = require("express-jwt")
 const rateLimit = require("express-rate-limit")
 const jsonwebtoken = require("jsonwebtoken")
-const SessionController = require("../controllers/SessionController")
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
