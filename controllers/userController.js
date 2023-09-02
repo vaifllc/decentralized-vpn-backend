@@ -177,7 +177,30 @@ exports.login = async (req, res) => {
         return res.status(400).json({ error: "Invalid credentials" })
       }
 
-      const token = createToken(user) // This will use user.userId internally
+      // Adding session management for centralized login
+      const newSession = {
+        sessionId: crypto.randomBytes(16).toString("hex"),
+        createdAt: new Date(),
+        event: "Login",
+        device: req.headers["user-agent"],
+        ip: req.ip,
+        location: "",
+        isp: "",
+        appVersion: "",
+        isActive: true,
+      }
+
+      console.log("Adding new session:", newSession)
+      user.sessions.push(newSession)
+
+      try {
+        await user.save()
+        console.log("User successfully saved.")
+      } catch (error) {
+        console.error("An error occurred while saving the user:", error)
+      }
+
+      const token = createToken(user)
       return sendResponse(res, "Logged in (centralized)", token)
     }
 
@@ -221,7 +244,7 @@ exports.login = async (req, res) => {
         console.error("An error occurred while saving the user:", error)
       }
 
-      const token = createToken(user) // This will use user.userId internally
+      const token = createToken(user)
       return sendResponse(res, "Logged in (decentralized)", token)
     }
 
@@ -232,6 +255,7 @@ exports.login = async (req, res) => {
     return res.status(500).json({ error: "Server error" })
   }
 }
+
 
 
 // Each blacklisted token entry will have the format: { token: '...', userId: '...', expires: <timestamp> }
