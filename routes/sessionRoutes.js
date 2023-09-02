@@ -89,19 +89,19 @@ router.post(
   "/activity-logs/toggle",
   authenticateJWT,
   requireLogin,
-  UserController.toggleActivityLogs
+  SessionController.toggleActivityLogs
 )
 router.post(
   "/auth-logs/toggle",
   authenticateJWT,
   requireLogin,
-  UserController.toggleAuthLogs
+  SessionController.toggleAuthLogs
 )
 router.post(
   "/advanced-logs/toggle",
   authenticateJWT,
   requireLogin,
-  UserController.toggleAdvancedLogs
+  SessionController.toggleAdvancedLogs
 )
 
 module.exports = router
