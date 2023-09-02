@@ -92,7 +92,7 @@ exports.toggleActivityLogs = async (req, res) => {
   }
 }
 
-exports.toggleActivityLogs = async (req, res) => {
+exports.toggleAuthLogs = async (req, res) => {
   try {
     const userId = req.auth.userId // Assuming user ID is available in request
     const user = await User.findById(userId)
@@ -101,13 +101,13 @@ exports.toggleActivityLogs = async (req, res) => {
       return res.status(404).json({ error: "User not found" })
     }
 
-    // Toggle the activity logs setting
-    user.logSettings.enableActivityLogs = !user.logSettings.enableActivityLogs
+    // Toggle the auth logs setting
+    user.logSettings.enableAuthLogs = !user.logSettings.enableAuthLogs
     await user.save()
 
-    res.status(200).json({ isEnabled: user.logSettings.enableActivityLogs })
+    res.status(200).json({ isEnabled: user.logSettings.enableAuthLogs })
   } catch (error) {
-    console.error("Error toggling activity logs:", error)
+    console.error("Error toggling auth logs:", error)
     res.status(500).json({ error: "Internal Server Error" })
   }
 }
