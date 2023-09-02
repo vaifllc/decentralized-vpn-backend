@@ -7,8 +7,7 @@ const BlacklistedTokenSchema = new mongoose.Schema({
     unique: true,
   },
   userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
+    type: String, // Changed from mongoose.Schema.Types.ObjectId to String
     required: true,
   },
   expires: {
@@ -20,6 +19,5 @@ const BlacklistedTokenSchema = new mongoose.Schema({
     default: Date.now,
   },
 })
-
 
 module.exports = mongoose.model("BlacklistedToken", BlacklistedTokenSchema)
