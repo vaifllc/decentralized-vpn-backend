@@ -1,13 +1,23 @@
 const mongoose = require("mongoose")
 const bcrypt = require("bcryptjs")
 
+const SecurityLogSchema = new mongoose.Schema({
+  time: Date,
+  event: String,
+  appVersion: String,
+  ip: String,
+  location: String,
+  isp: String,
+  device: String,
+  protection: Boolean,
+})
+
 const UserSchema = new mongoose.Schema({
   userId: {
     type: String,
     unique: true,
     required: true,
   },
-  // User's email address
   email: {
     type: String,
     unique: true,
@@ -16,100 +26,57 @@ const UserSchema = new mongoose.Schema({
     lowercase: true,
     match: /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/,
   },
-
-  // Hashed password
   password: {
     type: String,
-    select: false, // Do not return the password by default
+    select: false,
   },
-
-  // Ethereum address for decentralized authentication
   ethAddress: {
     type: String,
     unique: true,
     sparse: true,
   },
-
-  // Nonce for decentralized authentication challenges
   nonce: String,
-
-  // User role (user or admin)
   role: {
     type: String,
     enum: ["user", "admin"],
     default: "user",
   },
-
-  // User-specific permissions
   permissions: {
     type: [String],
     default: [],
   },
-
-  // Timestamp for user creation
   createdAt: {
     type: Date,
     default: Date.now,
   },
-
-  // Timestamp for the last update
   updatedAt: {
     type: Date,
     default: Date.now,
   },
-
+  logSettings: {
+    enableAuthLogs: { type: Boolean, default: false },
+    enableAdvancedLogs: { type: Boolean, default: false },
+  },
   sessions: [
     {
-      sessionId: {
-        type: String,
-        required: true,
-      },
-      createdAt: {
-        type: Date,
-        default: Date.now,
-      },
-      event: {
-        type: String,
-        enum: ["Login", "Logout"],
-      },
-      device: {
-        type: String,
-      },
-      ip: {
-        type: String,
-      },
-      location: {
-        type: String,
-      },
-      isp: {
-        type: String,
-      },
-      appVersion: {
-        type: String,
-      },
-      protection: {
-        type: Boolean, // True for VPN, False otherwise
-      },
-      addonPurchased: {
-        type: Boolean, // True if extended features are purchased
-      },
-      isActive: {
-        type: Boolean,
-        default: true,
-      },
+      sessionId: String,
+      date: Date,
+      action: String,
+      app: String,
     },
   ],
+  securityLogs: [SecurityLogSchema],
 })
 
-// Hash the password before saving
+// Hash the password before saving it
 UserSchema.pre("save", async function (next) {
   if (this.isModified("password")) {
-   // this.password = await bcrypt.hash(this.password, 10)
+    this.password = await bcrypt.hash(this.password, 10)
   }
   next()
 })
 
-// Middleware to update the 'updatedAt' field during updates
+// Middleware to update the 'updatedAt' field
 UserSchema.pre(["updateOne", "findOneAndUpdate"], function (next) {
   this.set({ updatedAt: new Date() })
   next()

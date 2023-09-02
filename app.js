@@ -91,6 +91,7 @@ app.use("/users", usersRouter)
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpecs))
 app.use("/admin", adminRoutes)
 app.use("/addons", addOnRoutes)
+app.use("/api/sessions", sessionRoutes)
 
 // Winston for general logging
 const logger = winston.createLogger({

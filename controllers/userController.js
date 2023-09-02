@@ -156,107 +156,127 @@ const sendResponse = (res, message, token) => {
   return res.status(200).json(responseObject)
 }
 
+// Helper function to create a security log
+const createSecurityLog = async (user, event, req, advancedLogEnabled) => {
+  const newLog = {
+    time: new Date(),
+    event,
+    appVersion: req.headers['app-version'] || '',
+    ip: req.ip,
+  };
+
+  if (advancedLogEnabled) {
+    newLog.location = req.headers['geo-location'] || '';
+    newLog.isp = req.headers['isp'] || '';
+    newLog.device = req.headers['user-agent'] || '';
+    newLog.protection = req.headers['vpn-protection'] === 'true';
+  }
+
+  user.securityLogs.push(newLog);
+  await user.save();
+};
+
+// Fetch all security logs for a user
+exports.getSecurityLogs = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    return res.status(200).json(user.securityLogs);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+// Update the log settings
+exports.updateLogSettings = async (req, res) => {
+  try {
+    const { userId, enableAuthLogs, enableAdvancedLogs } = req.body;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    user.logSettings = { enableAuthLogs, enableAdvancedLogs };
+    await user.save();
+
+    return res.status(200).json(user.logSettings);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+// Updated login function
 exports.login = async (req, res) => {
-  console.log("Request body:", req.body) // Log the request body
-  const { email, password, ethAddress, signature } = req.body
+  console.log("Request body:", req.body);
+  const { email, password, ethAddress, signature } = req.body;
 
   try {
+    let user;
+    let newSession = {
+      sessionId: crypto.randomBytes(16).toString("hex"),
+      date: new Date(),
+      action: "Login",
+      app: req.headers['app-name'] || '',
+    };
+
     if (email && password) {
-      console.log("Attempting centralized login")
-      const user = await User.findOne({ email }).select("+password")
+      console.log("Attempting centralized login");
+      user = await User.findOne({ email }).select("+password");
 
       if (!user) {
-        console.log("No user found with email:", email)
-        return res.status(400).json({ error: "Invalid credentials" })
+        console.log("No user found with email:", email);
+        return res.status(400).json({ error: "Invalid credentials" });
       }
 
-      const isMatch = await bcrypt.compare(password, user.password)
+      const isMatch = await bcrypt.compare(password, user.password);
 
       if (!isMatch) {
-        console.log("Password mismatch for email:", email)
-        return res.status(400).json({ error: "Invalid credentials" })
+        console.log("Password mismatch for email:", email);
+        return res.status(400).json({ error: "Invalid credentials" });
       }
 
-      // Adding session management for centralized login
-      const newSession = {
-        sessionId: crypto.randomBytes(16).toString("hex"),
-        createdAt: new Date(),
-        event: "Login",
-        device: req.headers["user-agent"],
-        ip: req.ip,
-        location: "",
-        isp: "",
-        appVersion: "",
-        isActive: true,
-      }
-
-      console.log("Adding new session:", newSession)
-      user.sessions.push(newSession)
-
-      try {
-        await user.save()
-        console.log("User successfully saved.")
-      } catch (error) {
-        console.error("An error occurred while saving the user:", error)
-      }
-
-      const token = createToken(user)
-      return sendResponse(res, "Logged in (centralized)", token)
-    }
-
-    if (ethAddress && signature) {
-      console.log("Attempting decentralized login")
-      const user = await User.findOne({ ethAddress })
+    } else if (ethAddress && signature) {
+      console.log("Attempting decentralized login");
+      user = await User.findOne({ ethAddress });
 
       if (!user) {
-        console.log("No user found with Ethereum address:", ethAddress)
-        return res.status(400).json({ error: "Login failed" })
+        console.log("No user found with Ethereum address:", ethAddress);
+        return res.status(400).json({ error: "Login failed" });
       }
 
-      const recoveredAddress = web3.eth.accounts.recover(user.nonce, signature)
-
+      const recoveredAddress = web3.eth.accounts.recover(user.nonce, signature);
       if (recoveredAddress.toLowerCase() !== ethAddress.toLowerCase()) {
-        console.log("Signature mismatch for Ethereum address:", ethAddress)
-        return res.status(401).json({ error: "Invalid signature" })
+        console.log("Signature mismatch for Ethereum address:", ethAddress);
+        return res.status(401).json({ error: "Invalid signature" });
       }
 
-      user.nonce = crypto.randomBytes(16).toString("hex")
+      user.nonce = crypto.randomBytes(16).toString("hex");
 
-      const newSession = {
-        sessionId: crypto.randomBytes(16).toString("hex"),
-        createdAt: new Date(),
-        event: "Login",
-        device: req.headers["user-agent"],
-        ip: req.ip,
-        location: "",
-        isp: "",
-        appVersion: "",
-        isActive: true,
-      }
-
-      console.log("Adding new session:", newSession)
-      user.sessions.push(newSession)
-
-      try {
-        await user.save()
-        console.log("User successfully saved.")
-      } catch (error) {
-        console.error("An error occurred while saving the user:", error)
-      }
-
-      const token = createToken(user)
-      return sendResponse(res, "Logged in (decentralized)", token)
+    } else {
+      console.log("None of the conditions met for login");
+      return res.status(400).json({ error: "Invalid login conditions" });
     }
 
-    console.log("None of the conditions met for login")
-    return res.status(400).json({ error: "Invalid login conditions" })
+    user.sessions.push(newSession);
+    await createSecurityLog(user, 'Login', req, user.logSettings.enableAdvancedLogs);
+    await user.save();
+
+    const token = createToken(user);
+    return sendResponse(res, "Logged in", token);
+
   } catch (error) {
-    console.error("An unexpected error occurred:", error)
-    return res.status(500).json({ error: "Server error" })
+    console.error("An unexpected error occurred:", error);
+    return res.status(500).json({ error: "Server error" });
   }
-}
-
-
+};
 
 // Each blacklisted token entry will have the format: { token: '...', userId: '...', expires: <timestamp> }
 exports.logout = async (req, res) => {
@@ -290,16 +310,18 @@ exports.logout = async (req, res) => {
 
     await newBlacklistedToken.save()
     console.log(`Token from user ${decodedToken.userId} added to blacklist`)
-
+    await createSecurityLog(
+    user,
+    "Logout",
+    req,
+    user.logSettings.enableAdvancedLogs
+  )
     return res.status(200).json({ message: "Successfully logged out" })
   } catch (error) {
     console.error("Error during logout:", error)
     return res.status(500).json({ error: "Internal Server Error" })
   }
 }
-
-
-
 
 exports.checkStatus = async (req, res) => {
   // Extract the JWT token from the request headers

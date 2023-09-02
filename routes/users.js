@@ -19,9 +19,11 @@ const {
   checkStatus,
   logout,
 } = require("../controllers/userController")
+const SessionController = require("../controllers/SessionController");
 const { expressjwt: expressJwt } = require("express-jwt")
 const rateLimit = require("express-rate-limit")
 const jsonwebtoken = require("jsonwebtoken")
+const SessionController = require("../controllers/SessionController")
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -82,10 +84,6 @@ const requireLogin = (req, res, next) => {
       .json({ message: "An internal server error occurred." })
   }
 }
-
-
-
-
 
 const checkBlacklistedToken = (req, res, next) => {
   console.log("Entering checkBlacklistedToken")
@@ -251,5 +249,15 @@ router.get("/", function (req, res, next) {
 router.get("/status", checkStatus)
 
 router.get("/details", authenticateJWT, requireLogin, getAuthenticatedUser)
+
+// Route to create a new session
+router.post("/sessions/create", authenticateJWT, requireLogin, SessionController.createSession);
+
+// Route to get all active sessions
+router.get("/sessions", authenticateJWT, requireLogin, SessionController.getSessions);
+
+// Route to revoke a session
+router.post("/sessions/revoke", authenticateJWT, requireLogin, SessionController.revokeSession);
+
 
 module.exports = router
