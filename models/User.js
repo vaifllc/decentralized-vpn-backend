@@ -69,12 +69,12 @@ const UserSchema = new mongoose.Schema({
 })
 
 // Hash the password before saving it
-UserSchema.pre("save", async function (next) {
-  if (this.isModified("password")) {
-    this.password = await bcrypt.hash(this.password, 10)
-  }
-  next()
-})
+// UserSchema.pre("save", async function (next) {
+//   if (this.isModified("password")) {
+//     this.password = await bcrypt.hash(this.password, 10)
+//   }
+//   next()
+// })
 
 // Middleware to update the 'updatedAt' field
 UserSchema.pre(["updateOne", "findOneAndUpdate"], function (next) {
