@@ -19,6 +19,7 @@ const rateLimit = require("express-rate-limit")
 const adminRoutes = require("./routes/adminRoutes")
 const addOnRoutes = require("./routes/addOnRoutes")
 const helmet = require("helmet")
+const sessionRoutes = require("./routes/sessionRoutes")
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
