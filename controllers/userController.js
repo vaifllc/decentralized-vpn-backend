@@ -213,70 +213,97 @@ exports.updateLogSettings = async (req, res) => {
   }
 };
 
-// Updated login function
 exports.login = async (req, res) => {
-  console.log("Request body:", req.body);
-  const { email, password, ethAddress, signature } = req.body;
+  console.log("Request body:", req.body) // Log the request body
+  const { email, password, ethAddress, signature } = req.body
 
   try {
-    let user;
-    let newSession = {
-      sessionId: crypto.randomBytes(16).toString("hex"),
-      date: new Date(),
-      action: "Login",
-      app: req.headers['app-name'] || '',
-    };
-
     if (email && password) {
-      console.log("Attempting centralized login");
-      user = await User.findOne({ email }).select("+password");
+      console.log("Attempting centralized login")
+      const user = await User.findOne({ email }).select("+password")
 
       if (!user) {
-        console.log("No user found with email:", email);
-        return res.status(400).json({ error: "Invalid credentials" });
+        console.log("No user found with email:", email)
+        return res.status(400).json({ error: "Invalid credentials" })
       }
 
-      const isMatch = await bcrypt.compare(password, user.password);
+      const isMatch = await bcrypt.compare(password, user.password)
 
       if (!isMatch) {
-        console.log("Password mismatch for email:", email);
-        return res.status(400).json({ error: "Invalid credentials" });
+        console.log("Password mismatch for email:", email)
+        return res.status(400).json({ error: "Invalid credentials" })
       }
 
-    } else if (ethAddress && signature) {
-      console.log("Attempting decentralized login");
-      user = await User.findOne({ ethAddress });
-
-      if (!user) {
-        console.log("No user found with Ethereum address:", ethAddress);
-        return res.status(400).json({ error: "Login failed" });
+      // Adding session management for centralized login
+      const newSession = {
+        sessionId: crypto.randomBytes(16).toString("hex"),
+        date: new Date(),
+        action: "Login",
+        app: req.headers["app-name"] || "",
       }
 
-      const recoveredAddress = web3.eth.accounts.recover(user.nonce, signature);
-      if (recoveredAddress.toLowerCase() !== ethAddress.toLowerCase()) {
-        console.log("Signature mismatch for Ethereum address:", ethAddress);
-        return res.status(401).json({ error: "Invalid signature" });
+      console.log("Adding new session:", newSession)
+      await createSecurityLog(user, "Login", req, user.enableAdvancedLogs)
+      user.sessions.push(newSession)
+
+      try {
+        await user.save()
+        console.log("User successfully saved.")
+      } catch (error) {
+        console.error("An error occurred while saving the user:", error)
       }
 
-      user.nonce = crypto.randomBytes(16).toString("hex");
-
-    } else {
-      console.log("None of the conditions met for login");
-      return res.status(400).json({ error: "Invalid login conditions" });
+      const token = createToken(user)
+      return sendResponse(res, "Logged in (centralized)", token)
     }
 
-    user.sessions.push(newSession);
-    await createSecurityLog(user, 'Login', req, user.logSettings.enableAdvancedLogs);
-    await user.save();
+    if (ethAddress && signature) {
+      console.log("Attempting decentralized login")
+      const user = await User.findOne({ ethAddress })
 
-    const token = createToken(user);
-    return sendResponse(res, "Logged in", token);
+      if (!user) {
+        console.log("No user found with Ethereum address:", ethAddress)
+        return res.status(400).json({ error: "Login failed" })
+      }
 
+      const recoveredAddress = web3.eth.accounts.recover(user.nonce, signature)
+
+      if (recoveredAddress.toLowerCase() !== ethAddress.toLowerCase()) {
+        console.log("Signature mismatch for Ethereum address:", ethAddress)
+        return res.status(401).json({ error: "Invalid signature" })
+      }
+
+      user.nonce = crypto.randomBytes(16).toString("hex")
+
+      const newSession = {
+        sessionId: crypto.randomBytes(16).toString("hex"),
+        date: new Date(),
+        action: "Login",
+        app: req.headers["app-name"] || "",
+      }
+
+      console.log("Adding new session:", newSession)
+      await createSecurityLog(user, "Login", req, user.enableAdvancedLogs)
+      user.sessions.push(newSession)
+
+      try {
+        await user.save()
+        console.log("User successfully saved.")
+      } catch (error) {
+        console.error("An error occurred while saving the user:", error)
+      }
+
+      const token = createToken(user)
+      return sendResponse(res, "Logged in (decentralized)", token)
+    }
+
+    console.log("None of the conditions met for login")
+    return res.status(400).json({ error: "Invalid login conditions" })
   } catch (error) {
-    console.error("An unexpected error occurred:", error);
-    return res.status(500).json({ error: "Server error" });
+    console.error("An unexpected error occurred:", error)
+    return res.status(500).json({ error: "Server error" })
   }
-};
+}
 
 // Each blacklisted token entry will have the format: { token: '...', userId: '...', expires: <timestamp> }
 exports.logout = async (req, res) => {
@@ -311,11 +338,11 @@ exports.logout = async (req, res) => {
     await newBlacklistedToken.save()
     console.log(`Token from user ${decodedToken.userId} added to blacklist`)
     await createSecurityLog(
-    user,
-    "Logout",
-    req,
-    user.logSettings.enableAdvancedLogs
-  )
+      user,
+      "Logout",
+      req,
+      user.logSettings.enableAdvancedLogs
+    )
     return res.status(200).json({ message: "Successfully logged out" })
   } catch (error) {
     console.error("Error during logout:", error)
