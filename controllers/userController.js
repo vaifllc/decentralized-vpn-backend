@@ -236,6 +236,7 @@ exports.login = async (req, res) => {
       console.log("Plain password from request: ", password)
 
       const isMatch = await bcrypt.compare(password, user.password)
+      console.log("Is password match:", isMatch)
 
       if (!isMatch) {
         console.log("Password mismatch for email:", email)
