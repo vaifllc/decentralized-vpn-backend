@@ -318,16 +318,24 @@ exports.logout = async (req, res) => {
     await newBlacklistedToken.save()
     console.log(`Token from user ${decodedToken.userId} added to blacklist`)
     // Retrieve the user based on the userId in the decoded token
-    const user = await User.findOne({ userId: decodedToken.userId })
-    if (!user) {
-      return res.status(404).json({ error: "User not found" })
-    }
-    await createSecurityLog(
-      user,
-      "Logout",
-      req,
-      user.logSettings.enableAdvancedLogs
-    )
+const user = await User.findOne({ userId: decodedToken.userId })
+if (!user) {
+  return res.status(404).json({ error: "User not found" })
+}
+
+if (
+  user &&
+  user.logSettings &&
+  typeof user.logSettings.enableAdvancedLogs !== "undefined"
+) {
+  await createSecurityLog(
+    user,
+    "Logout",
+    req,
+    user.logSettings.enableAdvancedLogs
+  )
+}
+
     return res.status(200).json({ message: "Successfully logged out" })
   } catch (error) {
     console.error("Error during logout:", error)
