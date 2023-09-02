@@ -232,36 +232,53 @@ exports.login = async (req, res) => {
 // Each blacklisted token entry will have the format: { token: '...', userId: '...', expires: <timestamp> }
 exports.logout = async (req, res) => {
   try {
+    console.log("Logout called") // Log entry point
+
     const authorizationHeader = req.headers.authorization
+    console.log("Authorization Header:", authorizationHeader) // Log the Authorization Header
+
     if (!authorizationHeader) {
-      return res.status(400).json({ error: "No authorization header provided" })
+      console.log("No authorization header provided") // Log error before sending a response
+      return res
+        .status(401)
+        .json({ error: "Unauthorized: No authorization header provided" })
     }
 
     const token = authorizationHeader.split(" ")[1]
+    console.log("Token:", token) // Log the extracted token
+
     if (!token) {
-      return res.status(400).json({ error: "Invalid authorization format" })
+      console.log("Invalid authorization format") // Log error before sending a response
+      return res
+        .status(400)
+        .json({ error: "Bad Request: Invalid authorization format" })
     }
 
     const decodedToken = jwt.decode(token)
+    console.log("Decoded Token:", decodedToken) // Log the decoded token
+
     if (!decodedToken || !decodedToken.userId) {
-      return res.status(400).json({ error: "Invalid token" })
+      console.log("Invalid token") // Log error before sending a response
+      return res.status(403).json({ error: "Forbidden: Invalid token" })
     }
 
     const newBlacklistedToken = new BlacklistedToken({
       token: token,
       userId: decodedToken.userId,
-      expires: decodedToken.exp * 1000,
+      expires: decodedToken.exp * 1000, // Add TTL here if your DB supports it
     })
 
     await newBlacklistedToken.save()
-    console.log(`Token from user ${decodedToken.userId} added to blacklist`)
+    console.log(`Token from user ${decodedToken.userId} added to blacklist`) // Log successful token blacklist
 
     return res.status(200).json({ message: "Successfully logged out" })
   } catch (error) {
-    console.error("Error during logout:", error)
-    return res.status(500).json({ error: "Server error" })
+    console.error("Error during logout:", error) // Log the error
+    return res.status(500).json({ error: "Internal Server Error" })
   }
 }
+
+
 
 exports.checkStatus = async (req, res) => {
   // Extract the JWT token from the request headers
