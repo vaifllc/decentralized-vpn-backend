@@ -213,6 +213,7 @@ exports.updateLogSettings = async (req, res) => {
   }
 };
 
+
 exports.login = async (req, res) => {
   console.log("Request body:", req.body) // Log the request body
   const { email, password, ethAddress, signature } = req.body
@@ -243,8 +244,13 @@ exports.login = async (req, res) => {
       }
 
       console.log("Adding new session:", newSession)
-      await createSecurityLog(user, "Login", req, user.enableAdvancedLogs)
       user.sessions.push(newSession)
+        await createSecurityLog(
+          user,
+          "Login",
+          req,
+          user.logSettings.enableAdvancedLogs
+        )
 
       try {
         await user.save()
@@ -283,8 +289,13 @@ exports.login = async (req, res) => {
       }
 
       console.log("Adding new session:", newSession)
-      await createSecurityLog(user, "Login", req, user.enableAdvancedLogs)
       user.sessions.push(newSession)
+        await createSecurityLog(
+          user,
+          "Login",
+          req,
+          user.logSettings.enableAdvancedLogs
+        )
 
       try {
         await user.save()
@@ -304,6 +315,8 @@ exports.login = async (req, res) => {
     return res.status(500).json({ error: "Server error" })
   }
 }
+
+
 
 // Each blacklisted token entry will have the format: { token: '...', userId: '...', expires: <timestamp> }
 exports.logout = async (req, res) => {
@@ -337,18 +350,21 @@ exports.logout = async (req, res) => {
 
     await newBlacklistedToken.save()
     console.log(`Token from user ${decodedToken.userId} added to blacklist`)
-    await createSecurityLog(
-      user,
-      "Logout",
-      req,
-      user.logSettings.enableAdvancedLogs
-    )
+  await createSecurityLog(
+    user,
+    "Logout",
+    req,
+    user.logSettings.enableAdvancedLogs
+  )
     return res.status(200).json({ message: "Successfully logged out" })
   } catch (error) {
     console.error("Error during logout:", error)
     return res.status(500).json({ error: "Internal Server Error" })
   }
 }
+
+
+
 
 exports.checkStatus = async (req, res) => {
   // Extract the JWT token from the request headers
