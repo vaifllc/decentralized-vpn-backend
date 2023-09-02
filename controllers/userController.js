@@ -151,10 +151,12 @@ const createToken = (user) => {
 }
 
 const sendResponse = (res, message, token, userId) => {
+  console.log("userId before sending:", userId) // Debugging log
   const responseObject = { message, token, user: { role: "user", userId } }
   console.log("Sending back response:", JSON.stringify(responseObject, null, 2))
   return res.status(200).json(responseObject)
 }
+
 
 
 
