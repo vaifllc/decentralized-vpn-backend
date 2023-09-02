@@ -32,19 +32,20 @@ exports.createSession = async (req, res) => {
 
 exports.getSessions = async (req, res) => {
   try {
-    const { userId } = req.params;
-    const user = await User.findById(userId).select('sessions');
+    const { userId } = req.params
+    const user = await User.findById(userId).select("sessions")
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: "User not found" })
     }
 
-    return res.status(200).json(user.sessions);
+    console.log("Sending sessions:", user.sessions) // Debugging line
+    return res.status(200).json(user.sessions)
   } catch (error) {
-    console.error("Error fetching sessions:", error);
-    return res.status(500).json({ error: "Internal Server Error" });
+    console.error("Error fetching sessions:", error)
+    return res.status(500).json({ error: "Internal Server Error" })
   }
-};
+}
 
 exports.revokeSession = async (req, res) => {
   try {
