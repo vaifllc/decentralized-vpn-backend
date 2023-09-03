@@ -44,11 +44,11 @@ const requireLogin = (req, res, next) => {
 
       next()
     })
-    res.status(401).json({ message: "Unauthorized" })
   } catch (error) {
     res.status(500).json({ message: "Internal Server Error" })
   }
 }
+
 
 
 const router = express.Router()
