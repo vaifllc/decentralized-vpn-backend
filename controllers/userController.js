@@ -251,11 +251,19 @@ exports.login = async (req, res) => {
       console.log("Password matched, proceeding...")
 
       // Adding session management for centralized login
+      const appType = req.headers["x-app-type"]
+      let appName = "Unknown App" // Default value
+
+      if (appType === "Web") {
+        appName = "R2 VPN For Web"
+      } else if (appType === "Mobile") {
+        appName = "R2 VPN For Mobile"
+      }
       const newSession = {
         sessionId: crypto.randomBytes(16).toString("hex"),
         date: new Date(),
         action: "Login",
-        app: req.headers["app-name"] || "",
+        app: appName,
       }
 
       console.log("Adding new session:", newSession)
