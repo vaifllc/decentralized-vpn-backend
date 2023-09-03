@@ -1,8 +1,9 @@
 const express = require("express")
 const SessionController = require("../controllers/SessionController")
-const { expressjwt: expressJwt } = require("express-jwt")
+const expressJwt = require("express-jwt")
 require("dotenv").config()
 const User = require("../models/User")
+
 const authenticateJWT = expressJwt({
   secret: process.env.JWT_SECRET,
   algorithms: ["HS256"],
@@ -19,57 +20,23 @@ const authenticateJWT = expressJwt({
   },
 }).unless({ path: ["/users/register", "/users/login"] })
 
-const requireLogin = (req, res, next) => {
+const requireLogin = async (req, res, next) => {
   try {
-    authenticateJWT(req, res, async (err) => {
-      if (err) {
-        return res.status(401).json({ message: err.message })
+    if (req.auth && req.auth.userId) {
+      const user = await User.findOne({ userId: req.auth.userId })
+      if (user) {
+        return next()
       }
-
-      // Extract the userId from req.auth
-      const userId = req.auth ? req.auth.userId : null
-
-      if (!userId) {
-        return res
-          .status(401)
-          .json({ message: "Invalid token or no token provided." })
-      }
-
-      // Find the user in the database using the custom userId
-      const user = await User.findOne({ userId: userId })
-
-      if (!user) {
-        return res.status(401).json({ message: "The user does not exist." })
-      }
-
-      next()
-    })
+    }
+    res.status(401).json({ message: "Unauthorized" })
   } catch (error) {
-    return res
-      .status(500)
-      .json({ message: "An internal server error occurred." })
+    res.status(500).json({ message: "Internal Server Error" })
   }
 }
 
-
 const router = express.Router()
 
-// Routes for session management
-router.post(
-  "/create",
-  authenticateJWT,
-  requireLogin,
-  SessionController.createSession
-)
-router.get("/", authenticateJWT, requireLogin, SessionController.getSessions)
-router.post(
-  "/revoke",
-  authenticateJWT,
-  requireLogin,
-  SessionController.revokeSession
-)
-
-// Routes for session management
+// Consolidated Routes for session management
 router.post(
   "/sessions/create",
   authenticateJWT,
@@ -82,7 +49,6 @@ router.get(
   requireLogin,
   SessionController.getSessions
 )
-
 router.post(
   "/sessions/revoke",
   authenticateJWT,
