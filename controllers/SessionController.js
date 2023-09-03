@@ -32,14 +32,14 @@ exports.createSession = async (req, res) => {
 
 exports.getSessions = async (req, res) => {
   try {
-    const userId = req.params.userId
-    const user = await User.findById(userId).select("sessions")
+    const userId = req.auth ? req.auth.userId : null // Extract from JWT
+
+    const user = await User.findOne({ userId: userId }).select("sessions") // Use findOne with userId
 
     if (!user) {
       return res.status(404).json({ error: "User not found" })
     }
 
-    console.log("Sending sessions:", user.sessions) // Debugging line
     return res.status(200).json(user.sessions)
   } catch (error) {
     console.error("Error fetching sessions:", error)

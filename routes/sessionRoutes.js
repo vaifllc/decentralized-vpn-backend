@@ -56,7 +56,7 @@ const router = express.Router()
 // Routes for session management
 // Consolidated Routes for session management
 router.post("/sessions/create", authenticateJWT, requireLogin, SessionController.createSession);
-router.get("/sessions/:userId", authenticateJWT, requireLogin, SessionController.getSessions);
+router.get("/sessions", authenticateJWT, SessionController.getSessions); // Removed :userId
 router.post("/sessions/revoke", authenticateJWT, requireLogin, SessionController.revokeSession);
 
 // Routes for toggling logs
