@@ -263,8 +263,9 @@ exports.login = async (req, res) => {
         sessionId: crypto.randomBytes(16).toString("hex"),
         date: new Date(),
         action: "Login",
-        app: appName,
+        app: req.headers["x-app-type"] || "Unknown App", // Make sure this matches the header you set in frontend
       }
+      console.log("App:", req.headers["x-app-type"]) // Debugging line to print the header value
 
       console.log("Adding new session:", newSession)
       user.sessions.push(newSession)
