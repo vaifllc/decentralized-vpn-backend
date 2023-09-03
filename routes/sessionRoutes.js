@@ -55,14 +55,38 @@ const router = express.Router()
 
 // Routes for session management
 // Consolidated Routes for session management
-router.post("/sessions/create", authenticateJWT, requireLogin, SessionController.createSession);
-router.get("/sessions", authenticateJWT, SessionController.getSessions); // Removed :userId
-router.post("/sessions/revoke", authenticateJWT, requireLogin, SessionController.revokeSession);
+router.post(
+  "/create",
+  authenticateJWT,
+  requireLogin,
+  SessionController.createSession
+)
+router.get("/", authenticateJWT, SessionController.getSessions)
+router.post(
+  "/revoke",
+  authenticateJWT,
+  requireLogin,
+  SessionController.revokeSession
+)
+router.post(
+  "/activity-logs/toggle",
+  authenticateJWT,
+  requireLogin,
+  SessionController.toggleActivityLogs
+)
+router.post(
+  "/auth-logs/toggle",
+  authenticateJWT,
+  requireLogin,
+  SessionController.toggleAuthLogs
+)
+router.post(
+  "/advanced-logs/toggle",
+  authenticateJWT,
+  requireLogin,
+  SessionController.toggleAdvancedLogs
+)
 
-// Routes for toggling logs
-router.post("/activity-logs/toggle", authenticateJWT, requireLogin, SessionController.toggleActivityLogs);
-router.post("/auth-logs/toggle", authenticateJWT, requireLogin, SessionController.toggleAuthLogs);
-router.post("/advanced-logs/toggle", authenticateJWT, requireLogin, SessionController.toggleAdvancedLogs);
 
 
 module.exports = router
