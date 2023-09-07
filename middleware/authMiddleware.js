@@ -1,24 +1,37 @@
 const jwt = require("jsonwebtoken")
+const winston = require("winston") // Consider using a logging library
 require("dotenv").config()
 
+// Make sure JWT_SECRET is set
+if (!process.env.JWT_SECRET) {
+  throw new Error("Missing JWT_SECRET environment variable")
+}
+
 const checkToken = (req, res, next) => {
-  console.log("Entering checkToken")
-    if (err) {
-      console.log("Error in checkToken:", err)
-      // ... rest of your code
-    }
+  winston.debug("Entering checkToken") // Using winston for logging at a debug level
+
+  // Extract token from header
   const token =
     req.headers["authorization"] && req.headers["authorization"].split(" ")[1]
+
+  // No token provided
   if (!token) {
-    return res.status(401).json({ message: "No token provided" })
+    const err = new Error("No token provided")
+    err.status = 401
+    return next(err)
   }
 
+  // Verify token
   jwt.verify(token, process.env.JWT_SECRET, (err, payload) => {
     if (err) {
-      return res.status(403).json({ message: "Invalid token" })
+      winston.error("Error in checkToken:", err) // Using winston for logging
+      const err = new Error("Invalid token")
+      err.status = 403
+      return next(err)
     }
-    console.log("Payload:", payload)
-    req.user = payload // You can attach the payload to req object
+
+    winston.debug(`Payload: ${JSON.stringify(payload)}`) // Using winston for logging at a debug level
+    req.user = payload
     next()
   })
 }

@@ -7,5 +7,10 @@ exports.log = async (user, action, details) => {
     details,
   })
 
-  await entry.save()
+  try {
+    await entry.save()
+  } catch (error) {
+    console.error("Failed to save audit log:", error)
+    // Optionally, you might want to notify an admin or trigger some other action
+  }
 }

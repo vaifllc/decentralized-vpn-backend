@@ -1,5 +1,13 @@
 const mongoose = require("mongoose")
 
+const LineItemSchema = new mongoose.Schema({
+  description: String,
+  amount: {
+    type: Number,
+    min: 0,
+  },
+})
+
 const InvoiceSchema = new mongoose.Schema({
   invoiceId: {
     type: String,
@@ -10,11 +18,13 @@ const InvoiceSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
     required: true,
+    index: true, // For faster queries
   },
   subscriptionId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Subscription",
     required: true,
+    index: true, // For faster queries
   },
   addOns: [
     {
@@ -25,10 +35,12 @@ const InvoiceSchema = new mongoose.Schema({
   totalAmount: {
     type: Number,
     required: true,
+    min: 0,
   },
   paidAmount: {
     type: Number,
     default: 0,
+    min: 0,
   },
   paymentStatus: {
     type: String,
@@ -69,6 +81,8 @@ const InvoiceSchema = new mongoose.Schema({
     discountCode: String,
     // ... other details you may want to include
   },
+  lineItems: [LineItemSchema], // Use the nested schema
+  paymentGatewayTransactionId: String, // Optional: for auditing
 })
 
 module.exports = mongoose.model("Invoice", InvoiceSchema)

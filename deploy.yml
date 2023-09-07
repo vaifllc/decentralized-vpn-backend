@@ -1,0 +1,23 @@
+---
+- hosts: your_server_ip
+  become: yes
+  tasks:
+    - name: Clone the repository
+      git:
+        repo: 'https://github.com/your_username/your_repository.git'
+        dest: '/path/to/destination/folder'
+        version: 'main'
+
+    - name: Install Node.js
+      apt:
+        name: nodejs
+        state: present
+
+    - name: Install npm packages
+      npm:
+        path: '/path/to/destination/folder'
+
+    - name: Start the application
+      command: 'npm start'
+      args:
+        chdir: '/path/to/destination/folder'

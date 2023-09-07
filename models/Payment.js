@@ -5,10 +5,16 @@ const paymentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
     required: true,
+    index: true, // Added index for faster queries
   },
   amount: {
     type: Number,
     required: true,
+    validate: {
+      validator: Number.isFinite,
+      message: "Amount must be a finite number",
+    },
+    min: [0, "Amount must be positive"],
   },
   currency: {
     type: String,
@@ -25,11 +31,11 @@ const paymentSchema = new mongoose.Schema({
   },
   paymentMethod: {
     type: String,
-    enum: ["stripe", "paypal", "crypto"], // Extend this as per your payment methods
+    enum: ["stripe", "paypal", "crypto"],
     required: true,
   },
   product: {
-    type: String, // This could be the product's name or ID, depending on your needs
+    type: String,
     required: true,
   },
   description: {

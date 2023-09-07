@@ -1,113 +1,93 @@
-var express = require("express")
-var path = require("path")
-var cookieParser = require("cookie-parser")
+const express = require("express")
+const path = require("path")
+const cookieParser = require("cookie-parser")
 const cors = require("cors")
-require("dotenv").config()
-
-var indexRouter = require("./routes/index")
-var usersRouter = require("./routes/users")
-
-var app = express()
-
-const connectDB = require("./config/db")
-const redisClient = require("./config/redis")
-const winston = require("winston")
 const morgan = require("morgan")
-const swaggerUi = require("swagger-ui-express")
-const swaggerSpecs = require("./config/swagger")
+const helmet = require("helmet")
 const rateLimit = require("express-rate-limit")
+const swaggerUi = require("swagger-ui-express")
+const winston = require("winston")
+const config = require("./config") // New import for configuration
+
+
+// Import routes
+const indexRouter = require("./routes/index")
+const usersRouter = require("./routes/users")
 const adminRoutes = require("./routes/adminRoutes")
 const addOnRoutes = require("./routes/addOnRoutes")
-const helmet = require("helmet")
 const sessionRoutes = require("./routes/sessionRoutes")
+const configRoutes = require("./routes/configRoutes")
 
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-})
+// Import middlewares
+const { connectDB, initialConnectDB } = require("./config/db")
+const setTenantContext = require("./middleware/setTenantContext")
+const centralizedErrorHandling = require("./utils/centralized-error-handling")
+const jwtMiddleware = require("./middleware/jwtMiddleware") // Assuming you have this middleware
+
+// Import services
+const AutoScalingService = require("./healthChecks/AutoScallingService")
+const HealthCheckService = require("./healthChecks/HealthCheckService") // Assuming you have this service
+
+// Initialize app
+const app = express()
+
+const swaggerSpecs = require("./config/swagger")
 
 // Connect to MongoDB
-connectDB()
+//connectDB()
+initialConnectDB()
 
-// Middleware setup
-app.use(helmet())
-app.use(express.json())
-app.use(express.urlencoded({ extended: false }))
-app.use(cookieParser())
-app.use(express.static(path.join(__dirname, "public")))
+// Middlewares
+app.use(helmet()) // Security headers
+app.use(morgan("combined")) // HTTP request logging
+app.use(express.json()) // Parse JSON request body
+app.use(express.urlencoded({ extended: false })) // Parse URL-encoded request body
+app.use(cookieParser()) // Parse cookies
+app.use(express.static(path.join(__dirname, "public"))) // Serve static files
 
-const allowedOrigins = process.env.CORS_ORIGIN.split(",").concat([
-  process.env.CORS_ORIGIN_URL,
-])
-
+// CORS setup
+const allowedOrigins = config.CORS_ALLOWED_ORIGINS
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin) return callback(null, true)
-      if (allowedOrigins.indexOf(origin) === -1) {
-        var msg =
-          "The CORS policy for this site does not allow access from the specified Origin."
-        return callback(new Error(msg), false)
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true)
       }
-      return callback(null, true)
+      callback(new Error("Not allowed by CORS"))
     },
   })
 )
 
-const jwtMiddleware = (req, res, next) => {
-  const token =
-    req.headers.authorization && req.headers.authorization.split(" ")[1]
-
-  if (!token) {
-    return res.status(401).json({
-      error: "No token provided.",
-    })
-  }
-
-  try {
-    const decodedToken = jwt.verify(token, process.env.JWT_SECRET)
-    req.user = decodedToken
-    next()
-  } catch (err) {
-    if (err.name === "JsonWebTokenError" || err.name === "TokenExpiredError") {
-      return res.status(401).json({
-        error: "Invalid or expired token.",
-      })
-    }
-
-    return res.status(500).json({
-      error: "Server error. Please try again later.",
-    })
-  }
-}
-
-// Use this middleware for protected routes
-//app.use("/protected-route", jwtMiddleware, protectedRouteHandler)
-
-app.use(limiter)
-app.use(morgan("combined"))
-
-app.use("/", indexRouter)
-app.use("/users", usersRouter)
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpecs))
-app.use("/admin", adminRoutes)
-app.use("/addons", addOnRoutes)
-app.use("/api/sessions", sessionRoutes)
-
-
-// Winston for general logging
-const logger = winston.createLogger({
-  level: "info",
-  format: winston.format.json(),
-  defaultMeta: { service: "user-service" },
-  transports: [
-    new winston.transports.File({ filename: "error.log", level: "error" }),
-    new winston.transports.File({ filename: "combined.log" }),
-  ],
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
 })
+app.use("/api/", limiter)
 
-const PORT = process.env.PORT || 3000
-app.listen(PORT, () => console.log(`Server started on port ${PORT}`))
-console.log("JWT_SECRET:", process.env.JWT_SECRET)
+// API Routes
+app.use("/api/v1/", jwtMiddleware, setTenantContext, connectDB)
+app.use("/api/v1/", indexRouter)
+app.use("/api/v1/users", usersRouter)
+app.use("/api/v1/admin", adminRoutes)
+app.use("/api/v1/addons", addOnRoutes)
+app.use("/api/v1/sessions", sessionRoutes)
+app.use("/api/v1/config", configRoutes)
+
+// Swagger UI
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpecs))
+
+// Error handling
+app.use(centralizedErrorHandling)
+
+// Tenant context
+//app.use(setTenantContext)
+
+// Periodic tasks
+setInterval(HealthCheckService.run, 60000)
+setInterval(AutoScalingService.autoScale, 5 * 60 * 1000)
+
+const PORT = config.PORT || 3000
+app.listen(PORT, () => winston.info(`Server started on port ${PORT}`))
 
 module.exports = app

@@ -1,22 +1,27 @@
 const express = require("express")
 const router = express.Router()
 const addOnController = require("../controllers/addOnController")
+//const { checkToken } = require("../middleware/checkToken")
+const { requireAdmin } = require("../middleware/authorization")
 
-// Create a new add-on
-router.post("/create", addOnController.createAddOn);
+// Create a new add-on (only admin)
+router.post("/create",  requireAdmin, addOnController.createAddOn)
 
-// List all available add-ons
-router.get("/list", addOnController.listAddOns);
+// List all available add-ons (open to all authenticated users)
+router.get("/list",  addOnController.listAddOns)
 
-// Fetch details of a specific add-on
-router.get("/:addOnId", addOnController.getAddOn);
+// Fetch details of a specific add-on (open to all authenticated users)
+router.get("/:addOnId",  addOnController.getAddOn)
 
-// Update an add-on
-router.put("/:addOnId", addOnController.updateAddOn);
+// Update an add-on (only admin)
+router.put("/:addOnId",  requireAdmin, addOnController.updateAddOn)
 
-// Delete an add-on
-router.delete("/:addOnId", addOnController.deleteAddOn);
-
-
+// Delete an add-on (only admin)
+router.delete(
+  "/:addOnId",
+  
+  requireAdmin,
+  addOnController.deleteAddOn
+)
 
 module.exports = router

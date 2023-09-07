@@ -1,6 +1,6 @@
 const express = require("express")
-const ObjectID = require("mongodb").ObjectID
 const router = express.Router()
+const ObjectID = require("mongodb").ObjectID
 require("dotenv").config()
 const geoip = require("geoip-lite")
 const User = require("../models/User")
@@ -13,8 +13,8 @@ const {
   getProfile,
   getAuthenticatedUser,
   updateProfile,
-  setupMFA,
-  verifyMFASetup,
+  enableTwoFactor,
+  validateTwoFactorToken,
   loginWithMFA,
   checkStatus,
   logout,
@@ -23,6 +23,36 @@ const SessionController = require("../controllers/SessionController");
 const { expressjwt: expressJwt } = require("express-jwt")
 const rateLimit = require("express-rate-limit")
 const jsonwebtoken = require("jsonwebtoken")
+const redis = require("redis")
+const client = redis.createClient()
+
+const winston = require("winston")
+
+// Redis Error Handling
+client.on("error", function (error) {
+  winston.error(`Redis error: ${error}`)
+})
+
+// DRY validation for email and password
+const validateEmailAndPassword = [
+  check("email")
+    .isEmail()
+    .withMessage("Valid email is required")
+    .normalizeEmail(),
+  check("password")
+    .isLength({ min: 6 })
+    .withMessage("Password should be at least 6 characters")
+    .trim()
+    .escape()
+];
+
+
+// Centralized Error Handling
+const errorHandler = (err, req, res, next) => {
+  winston.error(`Error: ${err.message}`);
+  res.status(500).send({ error: "An internal error occurred." });
+};
+
 
 // Limit for login attempts
 const loginLimiter = rateLimit({
@@ -36,6 +66,30 @@ const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100
 });
+
+const apiLimiter2 = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: (req) => {
+    return req.tenantId === "some-special-tenant" ? 1000 : 100 // Different rate limits per tenant
+  },
+})
+
+const requireTwoFA = async (req, res, next) => {
+  const user = await User.findById(req.auth.userId)
+  if (user && user.twoFAEnabled) {
+    // Assume that the 2FA token is sent in the request header as 'x-2fa-token'
+    const token = req.headers["x-2fa-token"]
+    const verified = speakeasy.totp.verify({
+      secret: user.twoFASecret,
+      encoding: "base32",
+      token,
+    })
+    if (!verified) {
+      return res.status(401).json({ error: "Invalid 2FA token" })
+    }
+  }
+  next()
+}
 
 const authenticateJWT = expressJwt({
   secret: process.env.JWT_SECRET,
@@ -91,18 +145,21 @@ const requireLogin = (req, res, next) => {
       .json({ message: "An internal server error occurred." })
   }
 }
-
 const checkBlacklistedToken = (req, res, next) => {
-  console.log("Entering checkBlacklistedToken")
   const token = req.auth // Assuming 'requestProperty: "auth"' from jwt middleware
 
-  // If token is in the blacklist, deny the request
-  if (blacklistedTokens.some((blacklisted) => blacklisted.token === token)) {
-    return res.status(401).json({ error: "Token is blacklisted" })
-  }
-
-  next()
+  // Check if the token is in the Redis store
+  client.exists(token, (err, reply) => {
+    if (err) {
+      return res.status(500).json({ error: "Internal Server Error" })
+    }
+    if (reply === 1) {
+      return res.status(401).json({ error: "Token is blacklisted" })
+    }
+    next()
+  })
 }
+
 
 // Error handling middleware for validation errors
 const handleValidationErrors = (req, res, next) => {
@@ -137,7 +194,29 @@ const handleValidationErrors = (req, res, next) => {
  *       400:
  *         description: Bad request
  */
-router.post("/register", register, apiLimiter)
+router.post(
+  "/register",
+  [
+    check("ethAddress")
+      .isLength({ min: 42, max: 42 })
+      .withMessage("Valid Ethereum address is required")
+      .escape(), // Sanitize the input
+    check("email")
+      .isEmail()
+      .withMessage("Valid email is required")
+      .normalizeEmail(), // Sanitize the email
+  ],
+  (req, res, next) => {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+    next()
+  },
+  register,
+  apiLimiter
+)
+
 
 /**
  * @swagger
@@ -162,40 +241,38 @@ router.post("/register", register, apiLimiter)
  */
 // Login route
 // Then in your routes
+// Apply DRY principle to /login route
 router.post(
   "/login",
   [
-    oneOf(
-      [
-        check("email").isEmail().withMessage("Valid email is required"),
-        check("password")
-          .isLength({ min: 6 })
-          .withMessage("Password should be at least 6 characters"),
-      ],
+    oneOf([
+      ...validateEmailAndPassword,
       [
         check("ethAddress")
           .isLength({ min: 42, max: 42 })
-          .withMessage("Valid Ethereum address is required"),
-        check("signature").exists().withMessage("Signature is required"),
-      ],
-      {
-        message:
-          "Either email/password or ethAddress/signature must be provided.",
-      }
-    ),
+          .withMessage("Valid Ethereum address is required")
+          .trim()
+          .escape(),
+        check("signature")
+          .exists()
+          .withMessage("Signature is required")
+          .trim()
+          .escape()
+      ]
+    ])
   ],
   (req, res, next) => {
-    const errors = validationResult(req)
+    const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() })
+      return res.status(400).json({ errors: errors.array() });
     }
-    next()
+    next();
   },
   login,
   loginLimiter,
   geolocationMiddleware,
-  login // Your login controller function
-)
+);
+
 router.post("/logout", logout)
 
 // Fetch user profile
@@ -241,13 +318,12 @@ router.put(
   updateProfile // Your updateProfile controller function
 )
 
-router.post("/setupMFA", requireLogin, setupMFA)
+// Endpoint for enabling 2FA
+router.post("/enableTwoFactor", authenticateJWT, requireLogin, enableTwoFactor);
 
-// Verify MFA setup for a user
-router.post("/verifyMFASetup", requireLogin, verifyMFASetup)
+// Endpoint for validating 2FA Token
+router.post("/validateTwoFactorToken", authenticateJWT, requireLogin, validateTwoFactorToken);
 
-// Login with MFA
-router.post("/loginWithMFA", loginWithMFA)
 
 router.get("/", function (req, res, next) {
   res.send("respond with a resource")

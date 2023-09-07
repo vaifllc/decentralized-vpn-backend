@@ -5,6 +5,7 @@ const EventLogSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
     required: true,
+    index: true, // for faster queries
   },
   eventType: {
     type: String,
@@ -16,15 +17,18 @@ const EventLogSchema = new mongoose.Schema({
       // Add more event types here
     ],
     required: true,
+    index: true, // for faster queries
   },
   details: {
-    type: String,
+    type: mongoose.Schema.Types.Mixed, // More flexible
     required: true,
   },
   timestamp: {
     type: Date,
     default: Date.now,
   },
+  ipAddress: String, // Optional: for auditing
+  deviceInfo: String, // Optional: for auditing
   // Add more fields as needed
 })
 

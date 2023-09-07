@@ -1,13 +1,30 @@
-const User = require("../models/User")
 const VPN = require("../models/Server")
-const Payment = require("../models/Payment") // Assuming you have a Payment model
+const { validationResult } = require("express-validator")
+const User = require("../models/User")
+const Server = require("../models/Server")
+const Payment = require("../models/Payment")
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY)
-const Pricing = require('../models/Pricing'); // Assuming you have a Pricing model
+const Pricing = require("../models/Pricing")
+const fs = require("fs")
 const compute = require("@google-cloud/compute")
 //const compute = new Compute()
 const monitoring = require("@google-cloud/monitoring")
 const client = new monitoring.MetricServiceClient()
-const fs = require("fs") // For file operations
+
+
+// Util functions for centralized error handling and logging
+const handleError = (error, res) => {
+  if (error.name === "CastError" || error.name === "ValidationError") {
+    res.status(400).json({ error: "Invalid parameter or data format." });
+  } else {
+    res.status(500).json({ error: `Internal Server Error: ${error.message}` });
+  }
+};
+
+const logAction = (userId, action) => {
+  console.log(`User ${userId} initiated action: ${action} at ${new Date().toISOString()}`);
+};
+
 
 // List All Users
 exports.listUsers = async (req, res) => {
@@ -49,9 +66,7 @@ exports.listUsers = async (req, res) => {
       totalUsers: totalUsers,
     })
   } catch (error) {
-    if (error.name === "CastError") {
-      return res.status(400).json({ error: "Invalid query parameter." })
-    }
+    handleError(error, res)
     res.status(500).json({ error: `Error fetching users: ${error.message}` })
   }
 }
@@ -94,9 +109,7 @@ exports.viewUser = async (req, res) => {
 
     res.json(user)
   } catch (error) {
-    if (error.name === "CastError") {
-      return res.status(400).json({ error: "Invalid user ID format." })
-    }
+    handleError(error, res)
     res
       .status(500)
       .json({ error: `Error fetching user details: ${error.message}` })
@@ -140,7 +153,7 @@ exports.updateUser = async (req, res) => {
     await user.save()
 
     // 3. Data Masking
-    user.password = undefined // Ensuring password is not returned
+    user.password = undefined // Ensuring the password is not returned
 
     // 4. Logging
     console.log(
@@ -157,6 +170,7 @@ exports.updateUser = async (req, res) => {
     res.status(500).json({ error: `Error updating user: ${error.message}` })
   }
 }
+
 
 
 // Delete a User
@@ -194,10 +208,9 @@ exports.deleteUser = async (req, res) => {
     )
 
     res.json({ message: "User deletion initiated. Awaiting approval." })
+    logAction(req.user.id, `Deleted user ${req.params.userId}`)
   } catch (error) {
-    if (error.name === "CastError") {
-      return res.status(400).json({ error: "Invalid user ID format." })
-    }
+    handleError(error, res)
     res.status(500).json({ error: `Error deleting user: ${error.message}` })
   }
 }
@@ -269,9 +282,7 @@ exports.viewServerLogs = async (req, res) => {
 
     res.json(logs)
   } catch (error) {
-    if (error.name === "CastError") {
-      return res.status(400).json({ error: "Invalid server ID format." })
-    }
+    handleError(error, res)
     res
       .status(500)
       .json({ error: `Error fetching server logs: ${error.message}` })
@@ -315,13 +326,12 @@ exports.controlServer = async (req, res) => {
     )
 
     res.json({ message: `Server ${action} initiated.` })
+        logAction(
+          req.user.id,
+          `${req.body.action} server ${req.params.serverId}`
+        )
   } catch (error) {
-    if (error.code === 404) {
-      return res.status(404).json({ error: "VM not found." })
-    }
-    if (error.code === 403) {
-      return res.status(403).json({ error: "Insufficient permissions." })
-    }
+handleError(error, res)
     // Handle other specific error codes as needed
     res
       .status(500)
@@ -372,14 +382,7 @@ exports.viewServerMetrics = async (req, res) => {
 
     res.json(metricsData)
   } catch (error) {
-    if (error.code === 404) {
-      return res
-        .status(404)
-        .json({ error: "Metric not found or server not found." })
-    }
-    if (error.code === 403) {
-      return res.status(403).json({ error: "Insufficient permissions." })
-    }
+    handleError(error, res)
     // Handle other specific error codes as needed
     res
       .status(500)
@@ -442,9 +445,7 @@ exports.listTransactions = async (req, res) => {
       totalTransactions: totalTransactions,
     })
   } catch (error) {
-    if (error.name === "CastError") {
-      return res.status(400).json({ error: "Invalid query parameter." })
-    }
+  handleError(error, res)
     res
       .status(500)
       .json({ error: `Error fetching transactions: ${error.message}` })
@@ -465,10 +466,9 @@ exports.viewTransaction = async (req, res) => {
     }
 
     res.json(transaction)
+    logAction(req.user.id, `Refunded transaction ${req.params.transactionId}`);
   } catch (error) {
-    if (error.name === "CastError") {
-      return res.status(400).json({ error: "Invalid transaction ID format." })
-    }
+    handleError(error, res);
     res
       .status(500)
       .json({ error: `Error fetching transaction details: ${error.message}` })

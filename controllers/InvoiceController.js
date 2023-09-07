@@ -3,6 +3,8 @@ const Subscription = require("../models/Subscription")
 const Invoice = require("../models/Invoice")
 const AddOn = require("../models/AddOn")
 const nodemailer = require("nodemailer")
+const validateInvoiceUpdates = require("./validators/invoiceValidator")
+const createAuditTrail = require("../utils/auditTrail")
 
 
 
@@ -62,36 +64,48 @@ const generateInvoice = async (userId, subscriptionId, addOnIds = []) => {
 
     await newInvoice.save()
 
-    // Send email to the user about the new invoice (Assuming sendEmail is a function you've defined)
-    // sendEmail(user.email, 'New Invoice Generated', `Total amount: ${totalAmount}`);
+    // Send email to the user about the new invoice
+    sendEmail(
+      user.email,
+      "New Invoice Generated",
+      `Total amount: ${totalAmount}`
+    )
   } catch (error) {
     console.error("Error generating invoice:", error)
-    // Handle the error appropriately
+    // Handle the error appropriately, possibly sending alerts
   }
 }
 
 
+
 const updateInvoice = async (invoiceId, updates) => {
   try {
-    const invoice = await Invoice.findById(invoiceId)
+    const session = await mongoose.startSession()
+    session.startTransaction()
+
+    const invoice = await Invoice.findById(invoiceId).session(session)
 
     if (!invoice) {
       throw new Error("Invoice not found")
     }
 
-    // Validate updates (You'll need to define your own validateInvoiceUpdates function)
-    // const isValid = validateInvoiceUpdates(updates);
-
-    // if (!isValid) {
-    //   throw new Error("Invalid updates");
-    // }
+    const isValid = validateInvoiceUpdates(updates)
+    if (!isValid) {
+      throw new Error("Invalid updates")
+    }
 
     Object.assign(invoice, updates)
 
-    await invoice.save()
+    await invoice.save({ session })
+    await createAuditTrail("Invoice updated", invoice, session) // Sample audit function
+
+    await session.commitTransaction()
+    session.endSession()
   } catch (error) {
     console.error("Error updating invoice:", error)
-    // Handle the error appropriately
+    await session.abortTransaction()
+    session.endSession()
+    // Handle the error appropriately, possibly sending alerts
   }
 }
 

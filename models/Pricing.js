@@ -24,20 +24,20 @@ const pricingSchema = new mongoose.Schema({
   },
 
   // Two-yearly price for the plan
-twoYearlyPrice: {
-  type: Number,
-  required: true,
-  min: 0,
+  twoYearlyPrice: {
+    type: Number,
+    required: true,
+    min: 0,
   },
 
-    // List of features included in the plan
+  // List of features included in the plan
   features: {
     type: [String],
     required: true,
     validate: (v) => Array.isArray(v) && v.length > 0, // Ensure there's at least one feature
   },
 
-    // Maximum number of devices the plan supports
+  // Maximum number of devices the plan supports
   maxDevices: {
     type: Number,
     required: true,
@@ -46,24 +46,39 @@ twoYearlyPrice: {
 
   // Data limit for the plan
   dataLimit: {
-    type: String,
+    type: Number, // Changed to Number
     required: true,
-    default: "Unlimited",
-    trim: true,
+    default: -1, // -1 signifies 'Unlimited'
+    min: -1,
   },
 
   // Discount percentage for the plan
-discount: {
-  type: Number,
-  min: 0,
-  max: 100,
-},
+  discount: {
+    type: Number,
+    min: 0,
+    max: 100,
+  },
 
-// List of add-ons available for the plan
-addOns: {
-  type: [String],
-  default: [],
-},
+  // List of add-ons available for the plan
+  addOns: {
+    type: [String],
+    default: [],
+  },
+  protocols: {
+    type: [String],
+    required: true,
+    validate: (v) => Array.isArray(v) && v.length > 0,
+  },
+  dataQuota: {
+    type: Number, // in GB
+    required: true,
+    min: 0,
+  },
+  planType: {
+    type: String,
+    enum: ["Individual", "Family", "Business"],
+    required: true,
+  },
 
   // Timestamps for creation and updates
   createdAt: {
@@ -78,11 +93,11 @@ addOns: {
 
 // Middleware to update the 'updatedAt' field on document updates
 pricingSchema.pre(["updateOne", "findOneAndUpdate"], function (next) {
-  this.set({ updatedAt: new Date() })
-  next()
-})
+  this.set({ updatedAt: new Date() });
+  next();
+});
 
 // Indexing planName for faster search
-pricingSchema.index({ planName: 1 })
+pricingSchema.index({ planName: 1 });
 
-module.exports = mongoose.model("Pricing", pricingSchema)
+module.exports = mongoose.model("Pricing", pricingSchema);

@@ -10,9 +10,18 @@ const options = {
     },
     servers: [
       {
-        url: "https://api.vpn.vaifr2.net:3000",
+        url: process.env.API_URL || "https://api.vpn.vaifr2.net:3000", // Environment specific
       },
     ],
+    components: {
+      securitySchemes: {
+        Bearer: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+        },
+      },
+    },
   },
   apis: ["./routes/*.js"], // Files with annotations for swagger-jsdoc
 }
@@ -20,7 +29,3 @@ const options = {
 const specs = swaggerJsdoc(options)
 
 module.exports = specs
-
-
-
-

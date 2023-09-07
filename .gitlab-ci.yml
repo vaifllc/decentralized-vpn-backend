@@ -1,0 +1,14 @@
+stages:
+  - build
+  - deploy
+
+build:
+  stage: build
+  script:
+    - npm install
+    - npm run test
+
+deploy:
+  stage: deploy
+  script:
+    - ansible-playbook deploy.yml

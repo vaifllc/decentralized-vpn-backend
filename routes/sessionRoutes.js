@@ -3,6 +3,7 @@ const SessionController = require("../controllers/SessionController")
 const { expressjwt: expressJwt } = require("express-jwt")
 require("dotenv").config()
 const User = require("../models/User")
+const winston = require('winston'); // Make sure to install this package
 const authenticateJWT = expressJwt({
   secret: process.env.JWT_SECRET,
   algorithms: ["HS256"],
@@ -23,6 +24,7 @@ const requireLogin = (req, res, next) => {
   try {
     authenticateJWT(req, res, async (err) => {
       if (err) {
+        winston.error(`Authentication Error: ${err.message}`)
         return res.status(401).json({ message: err.message })
       }
 
@@ -39,12 +41,14 @@ const requireLogin = (req, res, next) => {
       const user = await User.findOne({ userId: userId })
 
       if (!user) {
+        winston.warn(`Unauthorized access attempt by userId: ${userId}`)
         return res.status(401).json({ message: "The user does not exist." })
       }
 
       next()
     })
   } catch (error) {
+    winston.error(`Internal Server Error: ${error.message}`)
     res.status(500).json({ message: "Internal Server Error" })
   }
 }

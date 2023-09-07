@@ -1,9 +1,79 @@
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY)
-const User = require("../models/User") // Assuming you have a User model
+const User = require("../models/User")
 const { sendEmail } = require("../utils/emailService")
-const redisClient = require('../config/redis');  // Assuming you have a Redis setup
-const { createInvoice, updateUserPaymentHistory } = require('./invoiceController'); // Import your invoice creation function
-const { updateUserService } = require("..controllers/userController") // Import your user updating function
+const redisClient = require("../config/redis")
+const {
+  createInvoice,
+  updateUserPaymentHistory,
+} = require("./InvoiceController")
+const { updateUserService } = require("..controllers/userController")
+
+/**
+ * Send error response
+ * @param {object} res - Response object
+ * @param {number} status - HTTP status code
+ * @param {string} message - Error message
+ */
+const sendErrorResponse = (res, status, message) => {
+  return res.status(status).json({ success: false, error: message });
+};
+
+/**
+ * Send success response
+ * @param {object} res - Response object
+ * @param {object} data - Data to send in the response
+ */
+const sendSuccessResponse = (res, data) => {
+  return res.json({ success: true, data });
+};
+
+/**
+ * Handle Stripe errors
+ * @param {object} res - Response object
+ * @param {object} error - Stripe error object
+ */
+const handleStripeError = (res, error) => {
+  if (error.type === "StripeInvalidRequestError") {
+    return sendErrorResponse(res, 400, error.message);
+  } else {
+    return sendErrorResponse(res, 500, "Internal Server Error. Please try again later.");
+  }
+};
+
+
+
+// Utility function to send error response
+const sendErrorResponse = (res, status, message) => {
+  return res.status(status).json({ success: false, error: message })
+}
+
+// Utility function to send success response
+const sendSuccessResponse = (res, data) => {
+  return res.json({ success: true, data })
+}
+
+// Utility function to handle Stripe errors
+const handleStripeError = (res, error) => {
+  if (error.type === "StripeInvalidRequestError") {
+    return sendErrorResponse(res, 400, error.message)
+  } else {
+    return sendErrorResponse(
+      res,
+      500,
+      "Internal Server Error. Please try again later."
+    )
+  }
+}
+
+// Function to validate required environment variables
+const validateEnvVariables = () => {
+  if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
+    throw new Error("Missing required environment variables")
+  }
+}
+
+// Validate required environment variables at the start
+validateEnvVariables()
 
 async function updateUserService(userId, updateData) {
   try {
@@ -47,10 +117,44 @@ async function updateUserService(userId, updateData) {
 
 exports.createPaymentIntent = async (req, res) => {
   try {
-    const { amount, userId, items } = req.body
+    const { userId, items, planId, quota } = req.body
 
-    if (!amount || !userId || !items || !Array.isArray(items)) {
-      return res.status(400).json({ error: "Invalid input data." })
+    // Validate request body
+    if (!userId) {
+      return res.status(400).json({ error: "UserId is required." })
+    }
+
+    // Fetch user details
+    const user = await User.findById(userId)
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found." })
+    }
+
+    let amount
+    let description
+
+    if (user.serviceType === "quota") {
+      if (!quota) {
+        return res
+          .status(400)
+          .json({ error: "Quota is required for quota-based service." })
+      }
+      amount = quota * 5 // Example: $5 per GB
+      description = `Purchase of ${quota}GB quota`
+    } else if (user.serviceType === "plan") {
+      if (!planId) {
+        return res
+          .status(400)
+          .json({ error: "PlanId is required for plan-based service." })
+      }
+      // Get plan details from your database
+      // For demonstration, we assume the plan costs $20
+      const plan = { cost: 20 }
+      amount = plan.cost
+      description = `Subscription to plan ${planId}`
+    } else {
+      return res.status(400).json({ error: "Invalid service type." })
     }
 
     const metadata = {
@@ -60,22 +164,21 @@ exports.createPaymentIntent = async (req, res) => {
     }
 
     // Update user with Stripe customer ID if not already set
-    const user = await User.findById(userId)
     if (!user.stripeCustomerId) {
       const stripeCustomer = await stripe.customers.create({
         email: user.email,
         // other customer information
       })
-
       await updateUserService(userId, { stripeCustomerId: stripeCustomer.id })
     }
 
     const paymentIntent = await stripe.paymentIntents.create(
       {
-        amount,
+        amount: amount * 100, // Convert to cents
         currency: "usd",
         customer: user.stripeCustomerId,
         metadata,
+        description,
       },
       {
         idempotencyKey: `${userId}-${Date.now()}`,
@@ -106,9 +209,6 @@ exports.createPaymentIntent = async (req, res) => {
       .json({ error: `Error creating payment intent: ${error.message}` })
   }
 }
-
-
-
 
 // Create a new product
 exports.createProduct = async (req, res) => {
@@ -146,7 +246,6 @@ exports.createProduct = async (req, res) => {
   }
 }
 
-
 // Create a price for a product
 exports.createPrice = async (req, res) => {
   try {
@@ -158,11 +257,9 @@ exports.createPrice = async (req, res) => {
     }
 
     if (!["day", "week", "month", "year"].includes(interval)) {
-      return res
-        .status(400)
-        .json({
-          error: "Invalid interval. Valid options are: day, week, month, year.",
-        })
+      return res.status(400).json({
+        error: "Invalid interval. Valid options are: day, week, month, year.",
+      })
     }
 
     const price = await stripe.prices.create({
@@ -184,7 +281,6 @@ exports.createPrice = async (req, res) => {
     res.status(500).json({ error: `Error creating price: ${error.message}` })
   }
 }
-
 
 exports.createSubscription = async (req, res) => {
   try {
@@ -229,6 +325,28 @@ exports.createSubscription = async (req, res) => {
   }
 }
 
+// Utility function to send error response
+const sendErrorResponse = (res, status, message) => {
+  return res.status(status).json({ success: false, error: message })
+}
+
+// Utility function to send success response
+const sendSuccessResponse = (res, data) => {
+  return res.json({ success: true, data })
+}
+
+// Utility function to handle Stripe errors
+const handleStripeError = (res, error) => {
+  if (error.type === "StripeInvalidRequestError") {
+    return sendErrorResponse(res, 400, error.message)
+  } else {
+    return sendErrorResponse(
+      res,
+      500,
+      "Internal Server Error. Please try again later."
+    )
+  }
+}
 
 exports.handleStripeWebhook = async (req, res) => {
   const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET
@@ -242,7 +360,7 @@ exports.handleStripeWebhook = async (req, res) => {
     )
   } catch (err) {
     console.error(`Failed to verify Stripe webhook: ${err.message}`)
-    return res.status(400).send(`Webhook error: ${err.message}`)
+    return sendErrorResponse(res, 400, `Webhook error: ${err.message}`)
   }
 
   try {
@@ -257,7 +375,6 @@ exports.handleStripeWebhook = async (req, res) => {
           relatedInvoice.paymentStatus = "Paid"
           await relatedInvoice.save()
 
-          // Log this payment event
           const eventLog = new EventLog({
             eventType: "InvoicePaid",
             details: `Invoice with ID ${relatedInvoice._id} paid.`,
@@ -269,7 +386,6 @@ exports.handleStripeWebhook = async (req, res) => {
 
       case "invoice.payment_failed":
         const failedInvoice = event.data.object
-        // Log this failed payment event
         const failedEventLog = new EventLog({
           eventType: "InvoicePaymentFailed",
           details: `Payment for invoice with Stripe ID ${failedInvoice.id} failed.`,
@@ -280,22 +396,19 @@ exports.handleStripeWebhook = async (req, res) => {
 
       case "payment_intent.succeeded":
         const paymentIntent = event.data.object
-        // Do something on successful payment, such as extending subscription
         const subscription = await Subscription.findOne({
           stripeSubscriptionId: paymentIntent.metadata.subscriptionId,
         })
 
         if (subscription) {
-          // Assume the subscription period is one month. Adjust as needed.
           const newEndDate = new Date(subscription.endDate)
           newEndDate.setMonth(newEndDate.getMonth() + 1)
 
           subscription.endDate = newEndDate
-          subscription.status = "active" // Set the subscription to active
+          subscription.status = "active"
 
           await subscription.save()
 
-          // Log this event
           const successEventLog = new EventLog({
             eventType: "SubscriptionExtended",
             details: `Subscription with ID ${
@@ -309,7 +422,6 @@ exports.handleStripeWebhook = async (req, res) => {
 
       case "payment_intent.payment_failed":
         const failedPaymentIntent = event.data.object
-        // Log this event
         const failureEventLog = new EventLog({
           eventType: "PaymentIntentFailed",
           details: `Payment intent failed with Stripe ID ${failedPaymentIntent.id}.`,
@@ -323,11 +435,22 @@ exports.handleStripeWebhook = async (req, res) => {
         break
     }
 
-    res.json({ received: true })
+    sendSuccessResponse(res, { received: true })
   } catch (error) {
     console.error(`Error processing Stripe event: ${error.message}`)
-    res.status(500).json({ error: "Internal Server Error" })
+    handleStripeError(res, error)
   }
+}
+
+const convertCurrency = (amount, from, to) => {
+  const convertedAmount = amount // Actual conversion logic
+  return convertedAmount
+}
+
+// Example: Function to calculate new subscription end date
+const calculateNewEndDate = (currentEndDate, extensionPeriod) => {
+  const newEndDate = new Date(currentEndDate.getTime() + extensionPeriod)
+  return newEndDate
 }
 
 async function extendVPNAccess(customerId, totalAmount) {
@@ -364,12 +487,16 @@ async function handlePaymentSuccess(customerId, amount) {
     console.error(`User with Stripe customer ID ${customerId} not found.`)
     return
   }
-
-  // Update user's account balance or grant access to certain features
-  user.balance += amount
+  user.quota += amount // Update user's quota based on the amount paid.
   await user.save()
 
-  // Log the successful transaction (if you have a transaction log system in place)
+  // Optionally log this event
+  const successEventLog = new EventLog({
+    eventType: "QuotaUpdated",
+    details: `User quota updated for user with ID ${user._id}. New quota: ${user.quota}`,
+    timestamp: new Date(),
+  })
+  await successEventLog.save()
 }
 
 async function handlePaymentFailure(customerId) {
@@ -481,15 +608,15 @@ exports.refundPayment = async (req, res) => {
   }
 }
 
-function sendErrorResponse(res, status, message) {
+const sendErrorResponse = (res, status, message) => {
   return res.status(status).json({ success: false, error: message })
 }
 
-function sendSuccessResponse(res, data) {
+const sendSuccessResponse = (res, data) => {
   return res.json({ success: true, data })
 }
 
-function handleStripeError(res, error) {
+const handleStripeError = (res, error) => {
   if (error.type === "StripeInvalidRequestError") {
     return sendErrorResponse(res, 400, error.message)
   } else {
@@ -500,8 +627,28 @@ function handleStripeError(res, error) {
     )
   }
 }
-///////////////////////////////////////////////////
 
+/**
+ * Error Handling Middleware
+ * @param {object} err - Error object
+ * @param {object} req - Request object
+ * @param {object} res - Response object
+ * @param {function} next - Next middleware function
+ */
+const errorHandler = async (err, req, res, next) => {
+  if (err.type && err.type.startsWith("Stripe")) {
+    handleStripeError(res, err);
+  } else {
+    console.error(`[Error] ${err.message}`);
+    sendErrorResponse(res, 500, err.message);
+  }
+};
+
+// Add Redis caching logic for mapping userId to customerId
+const mapUserIdToCustomerId = async (userId) => {
+  // Add your Redis commands here...
+}
+///////////////////////////////////////////////////
 exports.listProducts = async (req, res) => {
   const limit = parseInt(req.query.limit) || 10
   const offset = parseInt(req.query.offset) || 0
@@ -813,58 +960,65 @@ function handleStripeError(res, error) {
 ///////////////////////////////////////////////////
 
 exports.resumeSubscription = async (req, res) => {
-    const { subscriptionId } = req.body;
+  const { subscriptionId } = req.body
 
-    // Validate inputs
-    if (!subscriptionId) {
-        return sendErrorResponse(res, 400, "subscriptionId is required in the request body.");
+  // Validate inputs
+  if (!subscriptionId) {
+    return sendErrorResponse(
+      res,
+      400,
+      "subscriptionId is required in the request body."
+    )
+  }
+
+  try {
+    const subscription = await stripe.subscriptions.update(subscriptionId, {
+      pause_collection: null,
+    })
+
+    const refinedSubscription = {
+      id: subscription.id,
+      status: subscription.status,
+      pause_collection: subscription.pause_collection,
     }
 
-    try {
-        const subscription = await stripe.subscriptions.update(subscriptionId, {
-            pause_collection: null,
-        });
-
-        const refinedSubscription = {
-            id: subscription.id,
-            status: subscription.status,
-            pause_collection: subscription.pause_collection
-        };
-
-        return sendSuccessResponse(res, refinedSubscription);
-    } catch (error) {
-        console.error(`Error resuming subscription ${subscriptionId}:`, error);
-        return handleStripeError(res, error);
-    }
-};
+    return sendSuccessResponse(res, refinedSubscription)
+  } catch (error) {
+    console.error(`Error resuming subscription ${subscriptionId}:`, error)
+    return handleStripeError(res, error)
+  }
+}
 
 // Reusing the helper functions we defined earlier:
 // sendErrorResponse, sendSuccessResponse, handleStripeError
 
-
 exports.cancelSubscription = async (req, res) => {
-    const { subscriptionId } = req.body;
+  const { subscriptionId } = req.body
 
-    // Validate inputs
-    if (!subscriptionId) {
-        return sendErrorResponse(res, 400, "subscriptionId is required in the request body.");
+  // Validate inputs
+  if (!subscriptionId) {
+    return sendErrorResponse(
+      res,
+      400,
+      "subscriptionId is required in the request body."
+    )
+  }
+
+  try {
+    const canceledSubscription = await stripe.subscriptions.del(subscriptionId)
+
+    const refinedSubscription = {
+      id: canceledSubscription.id,
+      status: canceledSubscription.status,
+      cancel_at_period_end: canceledSubscription.cancel_at_period_end,
     }
 
-    try {
-        const canceledSubscription = await stripe.subscriptions.del(subscriptionId);
-
-        const refinedSubscription = {
-            id: canceledSubscription.id,
-            status: canceledSubscription.status,
-            cancel_at_period_end: canceledSubscription.cancel_at_period_end
-        };
-
-        return sendSuccessResponse(res, refinedSubscription);
-    } catch (error) {
-        console.error(`Error canceling subscription ${subscriptionId}:`, error);
-        return handleStripeError(res, error);
-    }
-};
+    return sendSuccessResponse(res, refinedSubscription)
+  } catch (error) {
+    console.error(`Error canceling subscription ${subscriptionId}:`, error)
+    return handleStripeError(res, error)
+  }
+}
 
 async function handleStripePayment(stripeCustomerId, amount, description) {
   try {
@@ -888,4 +1042,3 @@ async function handleStripePayment(stripeCustomerId, amount, description) {
 
 // Reusing the helper functions we defined earlier:
 // sendErrorResponse, sendSuccessResponse, handleStripeError
-

@@ -1,29 +1,49 @@
-exports.requireAdmin = (req, res, next) => {
-  const user = req.auth // Assuming JWT authentication sets req.auth
+const winston = require("winston") // Consider using a logging library
 
+// Middleware to check if user is authenticated
+const isAuthenticated = (req, res, next) => {
+  const user = req.auth
   if (!user) {
-    return res.status(401).json({ error: "User not authenticated" })
+    const err = new Error("User not authenticated")
+    err.status = 401
+    winston.error("User not authenticated") // logging
+    return next(err)
   }
-
-  if (user.role !== "admin") {
-    return res.status(403).json({ error: "User not authorized" })
-  }
-
   next()
 }
 
-exports.hasPermission = (permission) => {
-  return (req, res, next) => {
+// Middleware to check if user is an admin
+const requireAdmin = [
+  isAuthenticated,
+  (req, res, next) => {
     const user = req.auth
-
-    if (!user) {
-      return res.status(401).json({ error: "User not authenticated" })
+    if (user.role !== "admin") {
+      const err = new Error("User not authorized")
+      err.status = 403
+      winston.error("User not authorized") // logging
+      return next(err)
     }
-
-    if (!user.permissions.includes(permission)) {
-      return res.status(403).json({ error: "User not authorized" })
-    }
-
     next()
-  }
+  },
+]
+
+// Middleware to check if user has a specific permission
+const hasPermission = (permission) => [
+  isAuthenticated,
+  (req, res, next) => {
+    const user = req.auth
+    if (!user.permissions.includes(permission)) {
+      const err = new Error("User not authorized")
+      err.status = 403
+      winston.error("User not authorized for permission:", permission) // logging
+      return next(err)
+    }
+    next()
+  },
+]
+
+module.exports = {
+  isAuthenticated,
+  requireAdmin,
+  hasPermission,
 }
